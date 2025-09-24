@@ -1,142 +1,287 @@
-import Image from "next/image";
-import logo from "@/assets/logo.svg";
-import logoDark from "@/assets/logo-dark.svg";
-import vercelLogotypeLight from "@/assets/vercel-logotype-light.svg";
-import vercelLogotypeDark from "@/assets/vercel-logotype-dark.svg";
-import Link from "next/link";
-import { ArrowRight, FileText, LogIn } from "lucide-react";
-import { dbConnectionStatus } from "@/db/connection-status";
-import { Button } from "@/components/ui/button";
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SignupForm } from "@/components/auth/signup-form";
+import { LoginForm } from "@/components/auth/login-form";
+import { RelativeForm } from "@/components/relatives/relative-form";
+import { BloodNetworkGraph } from "@/components/graph/blood-network-graph";
 
-const DATA = {
-  title: "Next.js with MongoDB",
-  description:
-    "A minimal template for building full-stack React applications using Next.js, Vercel, and MongoDB.",
-  button: {
-    text: "Deploy to Vercel",
-    href: "https://vercel.com/new/clone?repository-name=mongodb-nextjs&repository-url=https%3A%2F%2Fgithub.com%2Fmongodb-developer%2Fvercel-template-mongodb&project-name=mongodb-nextjs&demo-title=MongoDB%20%26%20Next.js%20Starter%20Template&demo-description=A%20minimal%20template%20for%20building%20full-stack%20React%20applications%20using%20Next.js%2C%20Vercel%2C%20and%20MongoDB.&demo-url=https%3A%2F%2Fnextjs.mongodb.com%2F&demo-image=https%3A%2F%2Fnextjs.mongodb.com%2Fog.png&integration-ids=oac_jnzmjqM10gllKmSrG0SGrHOH&from=templates",
-  },
-  link: {
-    text: "View on GitHub",
-    href: "https://github.com/mongodb-developer/nextjs-template-mongodb",
-  },
-  footerLinks: [
-    {
-      text: "Docs",
-      href: "https://www.mongodb.com/docs/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall",
-      icon: "FileText",
-    },
-    {
-      text: "MongoDB Atlas Login",
-      href: "https://account.mongodb.com/account/login/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall",
-      icon: "LogIn",
-    },
-  ],
-};
+interface User {
+  id: string;
+  user_code: string;
+  email_verified: boolean;
+  public_profile: boolean;
+  plan: string;
+}
 
-export default async function Home() {
-  const result = await dbConnectionStatus();
-  return (
-    <div className="flex min-h-screen flex-col">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 md:max-w-lg md:px-0 lg:max-w-xl">
-          <main className="flex flex-1 flex-col justify-center">
-            <div className="flex gap-6 lg:gap-8 items-center mb-6 md:mb-7">
-              <Image
-                className="lg:h-8 lg:w-auto dark:hidden"
-                src={logo}
-                alt="MongoDB logo"
-                width={88}
-                height={24}
-                priority
-              />
-              <Image
-                className="hidden lg:h-8 lg:w-auto dark:block"
-                src={logoDark}
-                alt="MongoDB logo"
-                width={88}
-                height={24}
-                priority
-              />
-              <Image
-                className="lg:h-6 lg:w-auto dark:hidden"
-                src={vercelLogotypeLight}
-                alt="MongoDB logo"
-                width={88}
-                height={24}
-                priority
-              />
-              <Image
-                className="hidden lg:h-6 lg:w-auto dark:block"
-                src={vercelLogotypeDark}
-                alt="MongoDB logo"
-                width={88}
-                height={24}
-                priority
-              />
+export default function Home() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentView, setCurrentView] = useState<'landing' | 'signup' | 'login' | 'dashboard'>('landing');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Check for existing session on page load
+  useEffect(() => {
+    const userData = localStorage.getItem('user_data');
+    const accessToken = localStorage.getItem('access_token');
+    
+    if (userData && accessToken) {
+      setCurrentUser(JSON.parse(userData));
+      setCurrentView('dashboard');
+    }
+  }, []);
+
+  const handleSignupSuccess = (userData: any) => {
+    setSuccess('Account created successfully! Please check your email for verification.');
+    setCurrentView('login');
+  };
+
+  const handleLoginSuccess = (data: any) => {
+    setCurrentUser(data.user);
+    setCurrentView('dashboard');
+    setSuccess('Welcome back!');
+  };
+
+  const handleLogout = () => {
+    // Call logout API
+    fetch('/api/auth/logout', { method: 'POST' });
+    
+    // Clear local storage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_data');
+    
+    setCurrentUser(null);
+    setCurrentView('landing');
+    setSuccess('Logged out successfully');
+  };
+
+  const handleError = (errorMessage: string) => {
+    setError(errorMessage);
+    setTimeout(() => setError(null), 5000);
+  };
+
+  const handleSuccess = (successMessage: string) => {
+    setSuccess(successMessage);
+    setTimeout(() => setSuccess(null), 5000);
+  };
+
+  // Mock graph data for demo
+  const mockGraphNodes = [
+    { id: '1', label: 'You', bloodGroup: 'A+', isUser: true },
+    { id: '2', label: 'John (Father)', bloodGroup: 'A+', relation: 'parent' },
+    { id: '3', label: 'Mary (Mother)', bloodGroup: 'B-', relation: 'parent' },
+    { id: '4', label: 'Alice (Sister)', bloodGroup: 'A+', relation: 'sibling' },
+    { id: '5', label: 'Bob (Brother)', bloodGroup: 'B-', relation: 'sibling' }
+  ];
+
+  const mockGraphEdges = [
+    { source: '1', target: '2', label: 'child' },
+    { source: '1', target: '3', label: 'child' },
+    { source: '1', target: '4', label: 'sibling' },
+    { source: '1', target: '5', label: 'sibling' },
+    { source: '2', target: '3', label: 'spouse' },
+    { source: '4', target: '5', label: 'sibling' }
+  ];
+
+  if (currentView === 'dashboard' && currentUser) {
+    return (
+      <div className="min-h-screen bg-black">
+        <header className="bg-gray-900 shadow-sm border-b border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <h1 className="text-2xl font-bold text-white">Blood Node</h1>
+              <div className="flex items-center space-x-4">
+                <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800">
+                  Plan: {currentUser.plan}
+                </Badge>
+                <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800">
+                  Code: {currentUser.user_code}
+                </Badge>
+                <Button variant="outline" onClick={handleLogout} className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white">
+                  Logout
+                </Button>
+              </div>
             </div>
-            <h1 className="text-3xl font-semibold leading-none tracking-tighter md:text-4xl md:leading-none lg:text-5xl lg:leading-none">
-              {DATA.title}
-            </h1>
-            <p className="mt-3.5 max-w-lg text-base leading-snug tracking-tight text-[#61646B] md:text-lg md:leading-snug lg:text-xl lg:leading-snug dark:text-[#94979E]">
-              {DATA.description}
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-5 md:mt-9 lg:mt-10">
-              <Button
-                asChild
-                className="rounded-full bg-[#00ED64] px-5 py-2.5 font-semibold tracking-tight text-[#001E2B] transition-colors duration-200 hover:bg-[#00684A] hover:text-[#FFFFFF] lg:px-7 lg:py-3"
-              >
-                <Link href={DATA.button.href} target="_blank">
-                  {DATA.button.text}
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                asChild
-                className="group flex items-center gap-2 leading-none tracking-tight"
-              >
-                <Link href={DATA.link.href} target="_blank">
-                  {DATA.link.text}
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 dark:text-white" />
-                </Link>
-              </Button>
+          </div>
+        </header>
+
+        {error && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded">
+              {error}
             </div>
-          </main>
-          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#023430] py-5 sm:gap-2 sm:gap-6 md:pb-12 md:pt-10 dark:border-[#023430]">
-            <ul className="flex items-center">
-              {DATA.footerLinks.map((link) => {
-                const icons = {
-                  FileText: FileText,
-                  LogIn: LogIn,
-                };
-                const Icon = icons[link.icon as keyof typeof icons];
-                return (
-                  <Button
-                    key={link.text}
-                    variant="ghost"
-                    asChild
-                    className="flex items-center gap-2 opacity-70 transition-opacity duration-200 hover:opacity-100 h-auto"
-                  >
-                    <Link href={link.href} target="_blank">
-                      <Icon className="h-4 w-4 dark:text-white" />
-                      <span className="text-sm tracking-tight">{link.text}</span>
-                    </Link>
-                  </Button>
-                );
-              })}
-            </ul>
-            <Badge
-              variant={result === "Database connected" ? "default" : "destructive"}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                result === "Database connected"
-                  ? "border-[#00ED64]/20 bg-[#00ED64]/10 text-[#00684A] dark:bg-[#00ED64]/10 dark:text-[#00ED64]"
-                  : "border-red-500/20 bg-red-500/10 text-red-500 dark:text-red-500"
-              }`}
-            >
-              {result}
-            </Badge>
-          </footer>
+          </div>
+        )}
+
+        {success && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded">
+              {success}
+            </div>
+          </div>
+        )}
+
+        <main className="max-w-7xl mx-auto">
+          <BloodNetworkGraph
+            nodes={mockGraphNodes}
+            edges={mockGraphEdges}
+            onNodeClick={(node) => {
+              console.log('Selected node:', node);
+            }}
+            onInviteClick={() => {
+              console.log('Invite clicked');
+            }}
+          />
+        </main>
       </div>
+    );
+  }
+
+  if (currentView === 'signup') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        {error && (
+          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+            {success}
+          </div>
+        )}
+        <div>
+          <SignupForm 
+            onSuccess={handleSignupSuccess} 
+            onError={handleError} 
+          />
+          <div className="text-center mt-4">
+            <button 
+              className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              onClick={() => setCurrentView('login')}
+            >
+              Already have an account? Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentView === 'login') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        {error && (
+          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+            {success}
+          </div>
+        )}
+        <div>
+          <LoginForm 
+            onSuccess={handleLoginSuccess} 
+            onError={handleError} 
+          />
+          <div className="text-center mt-4">
+            <button 
+              className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              onClick={() => setCurrentView('signup')}
+            >
+              Don't have an account? Sign up
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Landing page
+  return (
+    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded z-50">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="fixed top-4 right-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded z-50">
+          {success}
+        </div>
+      )}
+      
+      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Blood Node</h1>
+          <p className="text-lg text-gray-600 mb-8">
+            Secure family blood network with end-to-end encryption
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+          <div className="bg-white p-6 rounded-lg shadow-md border">
+            <h2 className="text-xl font-bold mb-4">🔒 Privacy First</h2>
+            <p className="text-gray-600 mb-4">
+              All your family data is encrypted end-to-end. We never see your private information.
+            </p>
+            <ul className="text-sm text-gray-500 space-y-1">
+              <li>• AES-256-GCM encryption</li>
+              <li>• Browser-only decryption</li>
+              <li>• Shamir Secret Sharing recovery</li>
+            </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border">
+            <h2 className="text-xl font-bold mb-4">🩸 Blood Network</h2>
+            <p className="text-gray-600 mb-4">
+              Map your family's blood types and donation history securely.
+            </p>
+            <ul className="text-sm text-gray-500 space-y-1">
+              <li>• Track blood group compatibility</li>
+              <li>• Find nearby donors</li>
+              <li>• Consent-based sharing</li>
+            </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border">
+            <h2 className="text-xl font-bold mb-4">🌐 Global Network</h2>
+            <p className="text-gray-600 mb-4">
+              Connect with family members worldwide with geolocation privacy.
+            </p>
+            <ul className="text-sm text-gray-500 space-y-1">
+              <li>• Coarse geohash location</li>
+              <li>• Distance-based search</li>
+              <li>• Invite flow with consent</li>
+            </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border">
+            <h2 className="text-xl font-bold mb-4">🚀 Easy Recovery</h2>
+            <p className="text-gray-600 mb-4">
+              Multiple recovery options ensure you never lose access.
+            </p>
+            <ul className="text-sm text-gray-500 space-y-1">
+              <li>• Server share + user share</li>
+              <li>• Optional email recovery</li>
+              <li>• Threshold-based reconstruction</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <Button size="lg" onClick={() => setCurrentView('signup')}>
+            Get Started
+          </Button>
+          <Button variant="outline" size="lg" onClick={() => setCurrentView('login')}>
+            Login
+          </Button>
+        </div>
+      </main>
     </div>
   );
 }
