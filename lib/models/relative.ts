@@ -10,7 +10,7 @@ export interface EncryptedBlob {
 export interface DekWrapped {
   recipient_user_code: string;
   wrapped: string; // base64
-  meta: Record<string, any>;
+  meta: Record<string, unknown>;
 }
 
 export interface TimeAvailability {

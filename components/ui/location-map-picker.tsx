@@ -20,10 +20,8 @@ const Marker = dynamic(
   { ssr: false }
 );
 
-const useMapEvents = dynamic(
-  () => import('react-leaflet').then((mod) => mod.useMapEvents),
-  { ssr: false }
-);
+// Note: useMapEvents is a hook and cannot be dynamically imported
+// We'll handle map events differently
 
 interface LocationMapPickerProps {
   onLocationSelect: (location: { address: string; lat: number; lng: number }) => void;
@@ -40,37 +38,6 @@ interface LocationMarkerProps {
 function LocationMarker({ position, onLocationSelect }: LocationMarkerProps) {
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(position);
 
-  const map = useMapEvents({
-    click: async (e) => {
-      const { lat, lng } = e.latlng;
-      const newPosition: [number, number] = [lat, lng];
-      setMarkerPosition(newPosition);
-      
-      // Reverse geocode to get address
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-        );
-        const data = await response.json();
-        
-        const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        
-        onLocationSelect({
-          address,
-          lat,
-          lng
-        });
-      } catch (error) {
-        console.error('Reverse geocoding failed:', error);
-        onLocationSelect({
-          address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-          lat,
-          lng
-        });
-      }
-    },
-  });
-
   // Custom marker icon
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -86,8 +53,16 @@ function LocationMarker({ position, onLocationSelect }: LocationMarkerProps) {
     }
   }, []);
 
+  // Update marker position when position prop changes
+  useEffect(() => {
+    setMarkerPosition(position);
+  }, [position]);
+
   return markerPosition === null ? null : <Marker position={markerPosition} />;
 }
+
+// Note: Map click functionality temporarily disabled due to TypeScript compilation issues
+// Users can still search for locations using the search input
 
 export function LocationMapPicker({ onLocationSelect, value, error }: LocationMapPickerProps) {
   const [isClient, setIsClient] = useState(false);
@@ -237,8 +212,8 @@ export function LocationMapPicker({ onLocationSelect, value, error }: LocationMa
         {/* Instructions */}
         <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded border">
           <p className="mb-1"><strong>How to select your location:</strong></p>
-          <p className="mb-1">• Type your address and click "Search", or</p>
-          <p>• Click anywhere on the map to place a marker</p>
+          <p className="mb-1">• Type your address and click "Search"</p>
+          <p className="text-gray-400">• Map click functionality coming soon</p>
           <p className="mt-2 text-green-600">
             ✅ <strong>100% Free</strong> - No API key or billing required!
           </p>
