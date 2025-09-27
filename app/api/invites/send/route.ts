@@ -72,12 +72,10 @@ export async function POST(request: NextRequest) {
     // Create invitation
     const invite = await createInvite({
       invite_token: inviteToken,
-      inviter_user_id: user._id!,
       inviter_user_code: user.user_code,
       inviter_public_key: user.public_key,
       invitee_email_hash: emailHash,
-      relation,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+      relation
     });
 
     // Send invitation email

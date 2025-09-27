@@ -1,6 +1,7 @@
 // Relatives API route
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { 
   createRelative, 
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const relatives = await getRelativesByOwner(user.user_code);
+    const relatives = await getRelativesByOwner(new ObjectId(user.sub));
     
     return NextResponse.json({
       success: true,
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      relative_user_code,
+      relative_user_id,
       relation,
       visibility,
       encrypted_blob,
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check plan limits
-    const currentCount = await countRelativesByOwner(user.user_code);
+    const currentCount = await countRelativesByOwner(new ObjectId(user.sub));
     const userRecord = await findUserById(user.sub);
     
     if (!userRecord) {
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     // Create relative
     const relativeData: RelativeCreateInput = {
-      relative_user_code: relative_user_code || undefined,
+      relative_user_id: relative_user_id ? new ObjectId(relative_user_id) : undefined,
       relation,
       visibility,
       encrypted_blob,
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       time_availability: time_availability || undefined
     };
 
-    const relative = await createRelative(user.user_code, relativeData);
+    const relative = await createRelative(new ObjectId(user.sub), relativeData);
 
     return NextResponse.json({
       success: true,

@@ -21,15 +21,17 @@ export interface TimeAvailability {
 
 export interface Relative {
   _id?: ObjectId;
-  owner_user_code: string;
-  relative_user_code?: string; // undefined if relative not yet registered
+  user_id: ObjectId; // User who created the relationship
+  relative_user_id?: ObjectId; // Related user (undefined if not yet registered)
   relation: string; // "uncle", "aunt", "cousin", etc.
-  visibility: 'private' | 'shared' | 'public';
-  encrypted_blob: EncryptedBlob;
-  dek_wrapped: DekWrapped[]; // list of DEK wrapped entries to recipients
+  status: 'active' | 'pending' | 'inactive';
+  visibility?: 'private' | 'shared' | 'public';
+  encrypted_blob?: EncryptedBlob;
+  dek_wrapped?: DekWrapped[]; // list of DEK wrapped entries to recipients
   last_donation_date?: Date;
   time_availability?: TimeAvailability;
   created_at: Date;
+  updated_at?: Date;
 }
 
 export interface RelativeDecrypted {
@@ -48,11 +50,12 @@ export interface RelativeDecrypted {
 }
 
 export interface RelativeCreateInput {
-  relative_user_code?: string;
+  relative_user_id?: ObjectId;
   relation: string;
-  visibility: 'private' | 'shared' | 'public';
-  encrypted_blob: EncryptedBlob;
-  dek_wrapped: DekWrapped[];
+  status?: 'active' | 'pending' | 'inactive';
+  visibility?: 'private' | 'shared' | 'public';
+  encrypted_blob?: EncryptedBlob;
+  dek_wrapped?: DekWrapped[];
   last_donation_date?: Date;
   time_availability?: TimeAvailability;
 }

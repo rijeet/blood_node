@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SignupForm } from "@/components/auth/signup-form";
 import { LoginForm } from "@/components/auth/login-form";
 import { RelativeForm } from "@/components/relatives/relative-form";
-import { BloodNetworkGraph } from "@/components/graph/blood-network-graph";
+import { BloodGroupGrid } from "@/components/family/blood-group-grid";
 import { FamilyInviteModal } from "@/components/family/family-invite-modal";
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 
@@ -93,23 +93,6 @@ export default function Home() {
     setTimeout(() => setSuccess(null), 5000);
   };
 
-  // Mock graph data for demo
-  const mockGraphNodes = [
-    { id: '1', label: 'You', bloodGroup: 'A+', isUser: true },
-    { id: '2', label: 'John (Father)', bloodGroup: 'A+', relation: 'parent' },
-    { id: '3', label: 'Mary (Mother)', bloodGroup: 'B-', relation: 'parent' },
-    { id: '4', label: 'Alice (Sister)', bloodGroup: 'A+', relation: 'sibling' },
-    { id: '5', label: 'Bob (Brother)', bloodGroup: 'B-', relation: 'sibling' }
-  ];
-
-  const mockGraphEdges = [
-    { source: '1', target: '2', label: 'child' },
-    { source: '1', target: '3', label: 'child' },
-    { source: '1', target: '4', label: 'sibling' },
-    { source: '1', target: '5', label: 'sibling' },
-    { source: '2', target: '3', label: 'spouse' },
-    { source: '4', target: '5', label: 'sibling' }
-  ];
 
   if (currentView === 'dashboard' && currentUser) {
     return (

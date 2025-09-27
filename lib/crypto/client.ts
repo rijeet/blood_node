@@ -19,7 +19,7 @@ import { splitSecret, combineShares } from './sss';
  * Client-side email hashing function
  * Must match server-side implementation exactly
  */
-export function hashEmailClient(email: string): string {
+export async function hashEmailClient(email: string): Promise<string> {
   // Use the same secret as server-side (this should be consistent)
   const secret = 'bloodnode-email-hash-secret-2024'; // This should match the server's secret
   const encoder = new TextEncoder();

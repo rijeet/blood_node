@@ -13,6 +13,7 @@ export interface Invite {
 }
 
 export interface InviteCreateInput {
+  invite_token?: string; // optional, will be generated if not provided
   inviter_user_code: string;
   inviter_public_key: string;
   invitee_email_hash: string;

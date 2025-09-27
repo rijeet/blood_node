@@ -201,13 +201,11 @@ export async function sendFamilyInviteEmail(
   relation: string,
   baseUrl: string = 'http://localhost:3000'
 ) {
-  const inviteUrl = `${baseUrl}/invite?token=${token}`;
-  
   const html = createFamilyInviteEmailTemplate({
     title: 'Family Network Invitation',
     inviterName,
     relation,
-    inviteUrl,
+    inviteToken: token,
     expiryHours: 24
   });
 

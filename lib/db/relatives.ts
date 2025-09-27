@@ -22,15 +22,17 @@ async function getRelativesCollection() {
  * Create a new relative record
  */
 export async function createRelative(
-  ownerUserCode: string,
+  userId: ObjectId,
   relativeData: RelativeCreateInput
 ): Promise<Relative> {
   const collection = await getRelativesCollection();
   
   const relative: Relative = {
-    owner_user_code: ownerUserCode,
+    user_id: userId,
     ...relativeData,
+    status: relativeData.status || 'active',
     created_at: new Date(),
+    updated_at: new Date(),
   };
   
   const result = await collection.insertOne(relative);
@@ -40,9 +42,9 @@ export async function createRelative(
 /**
  * Get relatives for a user
  */
-export async function getRelativesByOwner(ownerUserCode: string): Promise<Relative[]> {
+export async function getRelativesByOwner(userId: ObjectId): Promise<Relative[]> {
   const collection = await getRelativesCollection();
-  return collection.find({ owner_user_code: ownerUserCode }).toArray();
+  return collection.find({ user_id: userId }).toArray();
 }
 
 /**
@@ -102,13 +104,13 @@ export async function removeDekWrapped(
 /**
  * Get relatives where user has access (either as owner or shared)
  */
-export async function getAccessibleRelatives(userCode: string): Promise<Relative[]> {
+export async function getAccessibleRelatives(userId: ObjectId): Promise<Relative[]> {
   const collection = await getRelativesCollection();
   
   return collection.find({
     $or: [
-      { owner_user_code: userCode }, // User owns the record
-      { 'dek_wrapped.recipient_user_code': userCode } // User has been granted access
+      { user_id: userId }, // User owns the record
+      { relative_user_id: userId } // User is the relative in someone else's record
     ]
   }).toArray();
 }
@@ -121,7 +123,7 @@ export async function searchRelatives(filters: {
   relation?: string;
   geohashes?: string[];
   availableNow?: boolean;
-  userCode: string;
+  userId: ObjectId;
   limit?: number;
 }): Promise<Relative[]> {
   const collection = await getRelativesCollection();
@@ -131,8 +133,8 @@ export async function searchRelatives(filters: {
     {
       $match: {
         $or: [
-          { owner_user_code: filters.userCode },
-          { 'dek_wrapped.recipient_user_code': filters.userCode }
+          { user_id: filters.userId },
+          { relative_user_id: filters.userId }
         ]
       }
     },
@@ -141,8 +143,8 @@ export async function searchRelatives(filters: {
     {
       $lookup: {
         from: 'users',
-        localField: 'relative_user_code',
-        foreignField: 'user_code',
+        localField: 'relative_user_id',
+        foreignField: '_id',
         as: 'relative_user'
       }
     },
@@ -170,19 +172,19 @@ export async function searchRelatives(filters: {
 /**
  * Count relatives for a user (for plan enforcement)
  */
-export async function countRelativesByOwner(ownerUserCode: string): Promise<number> {
+export async function countRelativesByOwner(userId: ObjectId): Promise<number> {
   const collection = await getRelativesCollection();
-  return collection.countDocuments({ owner_user_code: ownerUserCode });
+  return collection.countDocuments({ user_id: userId });
 }
 
 /**
  * Delete relative record
  */
-export async function deleteRelative(relativeId: string, ownerUserCode: string): Promise<void> {
+export async function deleteRelative(relativeId: string, userId: ObjectId): Promise<void> {
   const collection = await getRelativesCollection();
   await collection.deleteOne({ 
     _id: new ObjectId(relativeId),
-    owner_user_code: ownerUserCode // Ensure only owner can delete
+    user_id: userId // Ensure only owner can delete
   });
 }
 
@@ -204,7 +206,7 @@ export async function updateLastDonationDate(
  * Get relatives available for donation (based on last donation date)
  */
 export async function getAvailableRelatives(
-  userCode: string,
+  userId: ObjectId,
   minimumDaysSinceLastDonation: number = 56 // Standard blood donation interval
 ): Promise<Relative[]> {
   const collection = await getRelativesCollection();
@@ -215,8 +217,8 @@ export async function getAvailableRelatives(
     $and: [
       {
         $or: [
-          { owner_user_code: userCode },
-          { 'dek_wrapped.recipient_user_code': userCode }
+          { user_id: userId },
+          { relative_user_id: userId }
         ]
       },
       {

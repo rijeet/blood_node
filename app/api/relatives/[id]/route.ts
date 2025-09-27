@@ -1,6 +1,7 @@
 // Individual relative API route
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { 
   getRelativeById, 
@@ -35,9 +36,9 @@ export async function GET(
       );
     }
 
-    // Check if user has access (owner or has DEK wrapped entry)
-    const hasAccess = relative.owner_user_code === user.user_code ||
-      relative.dek_wrapped.some(wrapped => wrapped.recipient_user_code === user.user_code);
+    // Check if user has access (owner or is the relative)
+    const hasAccess = relative.user_id.toString() === user.sub ||
+      (relative.relative_user_id && relative.relative_user_id.toString() === user.sub);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -87,7 +88,7 @@ export async function PUT(
     }
 
     // Only owner can update
-    if (relative.owner_user_code !== user.user_code) {
+    if (relative.user_id.toString() !== user.sub) {
       return NextResponse.json(
         { error: 'Only owner can update relative' },
         { status: 403 }
@@ -137,14 +138,14 @@ export async function DELETE(
     }
 
     // Only owner can delete
-    if (relative.owner_user_code !== user.user_code) {
+    if (relative.user_id.toString() !== user.sub) {
       return NextResponse.json(
         { error: 'Only owner can delete relative' },
         { status: 403 }
       );
     }
 
-    await deleteRelative(resolvedParams.id, user.user_code);
+    await deleteRelative(resolvedParams.id, new ObjectId(user.sub));
 
     return NextResponse.json({
       success: true,

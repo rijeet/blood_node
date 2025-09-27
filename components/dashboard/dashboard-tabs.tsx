@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DonorSearch } from '@/components/donors/donor-search';
 import { EmergencyAlert } from '@/components/emergency/emergency-alert';
 import { FamilyInviteModal } from '@/components/family/family-invite-modal';
+import { BloodGroupGrid } from '@/components/family/blood-group-grid';
+import { InviteTokenInput } from '@/components/family/invite-token-input';
 import { ProfileForm } from '@/components/profile/profile-form';
 import { 
   Users, 
@@ -227,33 +229,14 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
       case 'family':
         return (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Family Management
-                </CardTitle>
-                <CardDescription>
-                  Manage your family network and invitations
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center py-8">
-                  <Users className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Family Members Yet</h3>
-                  <p className="text-gray-600 mb-6">
-                    Start building your family blood network by inviting relatives
-                  </p>
-                  <Button 
-                    onClick={() => setShowInviteModal(true)}
-                    size="lg"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Invite Family Member
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Blood Group Grid */}
+            <BloodGroupGrid onInviteClick={() => setShowInviteModal(true)} />
+            
+            {/* Invite Token Input */}
+            <InviteTokenInput 
+              onSuccess={onSuccess}
+              onError={onError}
+            />
           </div>
         );
 
