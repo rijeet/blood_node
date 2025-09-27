@@ -7,6 +7,8 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { LoginForm } from "@/components/auth/login-form";
 import { RelativeForm } from "@/components/relatives/relative-form";
 import { BloodNetworkGraph } from "@/components/graph/blood-network-graph";
+import { FamilyInviteModal } from "@/components/family/family-invite-modal";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 
 interface User {
   id: string;
@@ -18,9 +20,10 @@ interface User {
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<'landing' | 'signup' | 'login' | 'dashboard'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'signup' | 'login' | 'dashboard' | 'verification'>('landing');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Check for existing session on page load
   useEffect(() => {
@@ -30,18 +33,41 @@ export default function Home() {
     if (userData && accessToken) {
       setCurrentUser(JSON.parse(userData));
       setCurrentView('dashboard');
+    } else {
+      // Check URL parameters for login redirect
+      const urlParams = new URLSearchParams(window.location.search);
+      const shouldLogin = urlParams.get('login') === 'true';
+      const returnUrl = urlParams.get('returnUrl');
+      
+      if (shouldLogin) {
+        setCurrentView('login');
+        if (returnUrl) {
+          // Store return URL for after login
+          localStorage.setItem('returnUrl', returnUrl);
+        }
+      }
     }
   }, []);
 
   const handleSignupSuccess = (userData: any) => {
-    setSuccess('Account created successfully! Please check your email for verification.');
-    setCurrentView('login');
+    setSuccess('Account created successfully! Please verify your email to complete registration.');
+    setCurrentView('verification');
+    // Store user data for verification
+    localStorage.setItem('pending_verification', JSON.stringify(userData));
   };
 
   const handleLoginSuccess = (data: any) => {
     setCurrentUser(data.user);
-    setCurrentView('dashboard');
     setSuccess('Welcome back!');
+    
+    // Check if there's a return URL to redirect to
+    const returnUrl = localStorage.getItem('returnUrl');
+    if (returnUrl) {
+      localStorage.removeItem('returnUrl');
+      window.location.href = returnUrl;
+    } else {
+      setCurrentView('dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -123,16 +149,11 @@ export default function Home() {
           </div>
         )}
 
-        <main className="max-w-7xl mx-auto">
-          <BloodNetworkGraph
-            nodes={mockGraphNodes}
-            edges={mockGraphEdges}
-            onNodeClick={(node) => {
-              console.log('Selected node:', node);
-            }}
-            onInviteClick={() => {
-              console.log('Invite clicked');
-            }}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <DashboardTabs
+            user={currentUser}
+            onError={handleError}
+            onSuccess={handleSuccess}
           />
         </main>
       </div>
@@ -201,6 +222,66 @@ export default function Home() {
     );
   }
 
+  if (currentView === 'verification') {
+    const pendingData = localStorage.getItem('pending_verification');
+    const userData = pendingData ? JSON.parse(pendingData) : null;
+
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        {error && (
+          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+            {success}
+          </div>
+        )}
+        <div className="max-w-md mx-auto p-6 bg-black rounded-lg shadow-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">🩸 Blood Node</h1>
+            <h2 className="text-xl text-gray-300">Email Verification Required</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div className="text-center">
+              <p className="text-gray-300 mb-4">
+                We've sent a verification email to <strong>{userData?.email}</strong>
+              </p>
+              <p className="text-sm text-gray-400">
+                Please check your email and click the verification link to complete your registration.
+              </p>
+            </div>
+
+            
+
+            <div className="text-center">
+              <button 
+                className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                onClick={() => setCurrentView('login')}
+              >
+                Already verified? Login
+              </button>
+            </div>
+
+            <div className="mt-6 p-4 bg-yellow-900 border border-yellow-700 rounded-md">
+              <h3 className="font-medium text-yellow-400">Important Recovery Information:</h3>
+              <div className="text-sm text-yellow-200 mt-2 space-y-2">
+                <p><strong>User Code:</strong> {userData?.userCode}</p>
+                <p><strong>Recovery Share:</strong> Save this securely offline</p>
+                <div className="bg-gray-800 p-2 rounded text-xs font-mono break-all">
+                  {userData?.userShare}
+                </div>
+                <p className="text-xs">This share is needed to recover your account if you forget your password.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Landing page
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -218,7 +299,7 @@ export default function Home() {
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">Blood Node</h1>
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-white-600 mb-8">
             Secure family blood network with end-to-end encryption
           </p>
         </div>

@@ -121,7 +121,7 @@ EMAIL_HASH_SECRET=your-email-hash-secret-change-in-production
 
 # SendGrid (optional)
 SENDGRID_API_KEY=your-sendgrid-api-key
-FROM_EMAIL=noreply@bloodnode.com
+FROM_EMAIL=onboarding@resend.dev
 
 # Stripe (optional)
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key

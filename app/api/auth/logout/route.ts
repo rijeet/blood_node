@@ -5,7 +5,7 @@ import { MongoClient } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { hashRefreshToken } from '@/lib/auth/jwt';
 
-const DB_NAME = process.env.DB_NAME || 'blood_node';
+const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
 export async function POST(request: NextRequest) {
   try {

@@ -12,7 +12,7 @@ import {
 } from '@/lib/auth/jwt';
 import { getUserAuthData } from '@/lib/db/users';
 
-const DB_NAME = process.env.DB_NAME || 'blood_node';
+const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
 export async function POST(request: NextRequest) {
   try {

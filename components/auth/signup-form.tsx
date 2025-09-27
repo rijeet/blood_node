@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { LocationMapPicker } from '@/components/ui/location-map-picker';
-import { BloodNodeCrypto } from '@/lib/crypto/client';
-import { hashEmail } from '@/lib/auth/jwt';
+import { BloodNodeCrypto, hashEmailClientAsync } from '@/lib/crypto/client';
 
 interface SignupFormProps {
   onSuccess: (data: any) => void;
@@ -16,9 +15,12 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
     email: '',
     password: '',
     confirmPassword: '',
+    name: '',
+    phone: '',
     bloodGroup: '',
     location: '',
     locationData: null as { address: string; lat: number; lng: number } | null,
+    lastDonationDate: '',
     makePublic: false
   });
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
       const cryptoData = await crypto.initializeNewUser(formData.password);
 
       // Hash email
-      const emailHash = hashEmail(formData.email);
+      const emailHash = await hashEmailClientAsync(formData.email);
 
       // Prepare signup data
       const signupData = {
@@ -59,9 +61,13 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
         master_salt: cryptoData.masterSalt,
         sss_server_share: cryptoData.sssShares[1], // Server gets share index 1
         user_code: cryptoData.userCode,
+        name: formData.name || null,
+        phone: formData.phone || null,
         blood_group_public: formData.makePublic ? formData.bloodGroup : null,
         location_geohash: formData.locationData ? `${formData.locationData.lat},${formData.locationData.lng}` : null,
-        location_address: formData.locationData?.address || null
+        location_address: formData.locationData?.address || null,
+        last_donation_date: formData.lastDonationDate ? new Date(formData.lastDonationDate).toISOString() : null,
+        email: formData.email // Include actual email for verification
       };
 
       // Call signup API
@@ -84,7 +90,8 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
         userCode: cryptoData.userCode,
         userShare: cryptoData.sssShares[0], // User gets share index 0
         emailShare: cryptoData.sssShares[2], // Email share index 2
-        verificationToken: result.verification_token
+        verificationToken: result.verification_token,
+        email: formData.email
       };
 
       onSuccess(userData);
@@ -112,6 +119,30 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
           />
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-white font-medium mb-1">Full Name</label>
+            <input
+              type="text"
+              className="w-full p-2 border bg-white text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Your full name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-white font-medium mb-1">Phone Number</label>
+            <input
+              type="tel"
+              className="w-full p-2 border bg-white text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm text-white font-medium mb-1">Password</label>
           <input
@@ -136,23 +167,36 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
           />
         </div>
 
-        <div>
-          <label className="block text-sm text-white font-medium mb-1">Blood Group</label>
-          <select
-            className="w-full p-2 border bg-white text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={formData.bloodGroup}
-            onChange={(e) => setFormData(prev => ({ ...prev, bloodGroup: e.target.value }))}
-          >
-            <option value="">Select Blood Group</option>
-            <option value="A+">A+</option>
-            <option value="A-">A-</option>
-            <option value="B+">B+</option>
-            <option value="B-">B-</option>
-            <option value="AB+">AB+</option>
-            <option value="AB-">AB-</option>
-            <option value="O+">O+</option>
-            <option value="O-">O-</option>
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-white font-medium mb-1">Blood Group</label>
+            <select
+              className="w-full p-2 border bg-white text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.bloodGroup}
+              onChange={(e) => setFormData(prev => ({ ...prev, bloodGroup: e.target.value }))}
+            >
+              <option value="">Select Blood Group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-white font-medium mb-1">Last Donation Date</label>
+            <input
+              type="date"
+              className="w-full p-2 border bg-white text-black rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.lastDonationDate}
+              onChange={(e) => setFormData(prev => ({ ...prev, lastDonationDate: e.target.value }))}
+            />
+            <p className="text-xs text-gray-400 mt-1">Optional - helps determine availability</p>
+          </div>
         </div>
 
         <LocationMapPicker

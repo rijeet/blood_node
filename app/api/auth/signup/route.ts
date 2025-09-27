@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUser, userCodeExists, findUserByEmailHash } from '@/lib/db/users';
 import { UserCreateInput } from '@/lib/models/user';
 import { generateUserCode } from '@/lib/crypto';
-import { generateSecureToken } from '@/lib/auth/jwt';
+import { createVerificationToken } from '@/lib/db/verification';
+import { sendVerificationEmail } from '@/lib/email/service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,8 +18,13 @@ export async function POST(request: NextRequest) {
       sss_server_share,
       user_code: providedUserCode,
       location_geohash,
-      blood_group_public
-    }: UserCreateInput = body;
+      location_address,
+      blood_group_public,
+      name,
+      phone,
+      last_donation_date,
+      email // We need the actual email to send verification
+    }: UserCreateInput & { email?: string } = body;
 
     // Validate required fields
     if (!email_hash || !public_key || !encrypted_private_key || !master_salt || !sss_server_share) {
@@ -62,16 +68,34 @@ export async function POST(request: NextRequest) {
       sss_server_share,
       user_code: userCode,
       location_geohash: location_geohash || undefined,
-      blood_group_public: blood_group_public || undefined
+      location_address: location_address || undefined,
+      blood_group_public: blood_group_public || undefined,
+      name: name || undefined,
+      phone: phone || undefined,
+      last_donation_date: last_donation_date ? new Date(last_donation_date) : undefined
     };
 
     const user = await createUser(userData);
 
-    // Generate email verification token
-    const verificationToken = generateSecureToken();
+    // Create verification token in database
+    const { token } = await createVerificationToken({
+      email_hash,
+      token_type: 'email_verification',
+      user_id: user._id,
+      expiresInHours: 1
+    });
     
-    // TODO: Store verification token in database
-    // TODO: Send verification email with SSS email share
+    // Send verification email if email is provided
+    if (email) {
+      try {
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        await sendVerificationEmail(email, token, baseUrl);
+        console.log('Verification email sent to:', email);
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail the signup if email fails - user can resend later
+      }
+    }
     
     return NextResponse.json({
       success: true,
@@ -82,7 +106,8 @@ export async function POST(request: NextRequest) {
         public_profile: user.public_profile,
         plan: user.plan
       },
-      verification_token: verificationToken
+      verification_token: token,
+      message: email ? 'Account created! Please check your email to verify your account.' : 'Account created! Please verify your email address.'
     }, { status: 201 });
 
   } catch (error) {

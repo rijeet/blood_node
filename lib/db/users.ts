@@ -5,7 +5,7 @@ import clientPromise from '@/lib/mongodb';
 import { User, UserCreateInput, UserAuthData } from '@/lib/models/user';
 import { hashEmail } from '@/lib/auth/jwt';
 
-const DB_NAME = process.env.DB_NAME || 'blood_node';
+const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 const COLLECTION_NAME = 'users';
 
 /**
@@ -187,6 +187,69 @@ export async function updateUserLocation(
 }
 
 /**
+ * Update user profile information
+ */
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    name?: string;
+    phone?: string;
+    location_address?: string;
+    blood_group_public?: string;
+    last_donation_date?: Date;
+  }
+): Promise<void> {
+  const collection = await getUsersCollection();
+  const updateData: any = { 
+    updated_at: new Date() 
+  };
+  
+  if (updates.name !== undefined) {
+    updateData.name = updates.name;
+  }
+  
+  if (updates.phone !== undefined) {
+    updateData.phone = updates.phone;
+  }
+  
+  if (updates.location_address !== undefined) {
+    updateData.location_address = updates.location_address;
+  }
+  
+  if (updates.blood_group_public !== undefined) {
+    updateData.blood_group_public = updates.blood_group_public;
+  }
+  
+  if (updates.last_donation_date !== undefined) {
+    updateData.last_donation_date = updates.last_donation_date;
+  }
+  
+  await collection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: updateData }
+  );
+}
+
+/**
+ * Update last donation date
+ */
+export async function updateLastDonationDate(
+  userId: string,
+  donationDate: Date
+): Promise<void> {
+  const collection = await getUsersCollection();
+  await collection.updateOne(
+    { _id: new ObjectId(userId) },
+    { 
+      $set: { 
+        last_donation_date: donationDate,
+        updated_at: new Date() 
+      } 
+    }
+  );
+}
+
+/**
  * Check if user code exists
  */
 export async function userCodeExists(userCode: string): Promise<boolean> {
@@ -230,4 +293,60 @@ export async function searchUsers(filters: {
     .find(query)
     .limit(filters.limit || 50)
     .toArray();
+}
+
+/**
+ * Get users with availability information
+ */
+export async function getUsersWithAvailability(filters: {
+  bloodGroup?: string;
+  geohashes?: string[];
+  excludeUserCode?: string;
+  onlyAvailable?: boolean;
+  limit?: number;
+}): Promise<Array<User & { availability: ReturnType<typeof import('../models/user').calculateAvailability> }>> {
+  const collection = await getUsersCollection();
+  
+  const query: any = {};
+  
+  if (filters.bloodGroup) {
+    query.blood_group_public = filters.bloodGroup;
+  }
+  
+  if (filters.geohashes && filters.geohashes.length > 0) {
+    query.location_geohash = { $in: filters.geohashes };
+  }
+  
+  if (filters.excludeUserCode) {
+    query.user_code = { $ne: filters.excludeUserCode };
+  }
+  
+  // Only include users with public profiles or public blood groups
+  query.$or = [
+    { public_profile: true },
+    { blood_group_public: { $exists: true } }
+  ];
+  
+  const users = await collection
+    .find(query)
+    .limit(filters.limit || 50)
+    .toArray();
+
+  // Add availability information
+  const usersWithAvailability = users.map(user => {
+    const { calculateAvailability } = require('../models/user');
+    const availability = calculateAvailability(user.last_donation_date);
+    
+    return {
+      ...user,
+      availability
+    };
+  });
+
+  // Filter by availability if requested
+  if (filters.onlyAvailable) {
+    return usersWithAvailability.filter(user => user.availability.isAvailable);
+  }
+
+  return usersWithAvailability;
 }

@@ -1,4 +1,6 @@
 // Geolocation utilities for Blood Node
+// @ts-expect-error - ngeohash doesn't have type definitions
+import * as ngeohash from 'ngeohash';
 
 /**
  * Calculate distance between two points using Haversine formula
@@ -29,65 +31,17 @@ function toRad(degrees: number): number {
 }
 
 /**
- * Encode coordinates to geohash (simplified implementation)
- * In production, use the ngeohash library
+ * Encode coordinates to geohash using ngeohash library
  */
 export function encodeGeohash(lat: number, lng: number, precision: number = 5): string {
-  // This is a simplified mock implementation
-  // In production, use: import * as ngeohash from 'ngeohash';
-  // return ngeohash.encode(lat, lng, precision);
-  
-  // Mock implementation for development
-  const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
-  let hash = '';
-  
-  // Simplified encoding (NOT ACCURATE - for demo only)
-  const latRange = [-90, 90];
-  const lngRange = [-180, 180];
-  
-  for (let i = 0; i < precision; i++) {
-    const latMid = (latRange[0] + latRange[1]) / 2;
-    const lngMid = (lngRange[0] + lngRange[1]) / 2;
-    
-    let index = 0;
-    
-    if (lng >= lngMid) {
-      index |= 1;
-      lngRange[0] = lngMid;
-    } else {
-      lngRange[1] = lngMid;
-    }
-    
-    if (lat >= latMid) {
-      index |= 2;
-      latRange[0] = latMid;
-    } else {
-      latRange[1] = latMid;
-    }
-    
-    hash += base32[index + Math.floor(Math.random() * 4)]; // Add some randomness for demo
-  }
-  
-  return hash;
+  return ngeohash.encode(lat, lng, precision);
 }
 
 /**
- * Decode geohash to approximate coordinates (simplified)
+ * Decode geohash to approximate coordinates using ngeohash library
  */
 export function decodeGeohash(geohash: string): { lat: number; lng: number } {
-  // Mock implementation - in production use ngeohash.decode(geohash)
-  // This is just for development/demo purposes
-  
-  // Return approximate center coordinates based on geohash prefix
-  const prefixMap: Record<string, { lat: number; lng: number }> = {
-    'dr5': { lat: 40.7829, lng: -73.9654 }, // NYC area
-    'gbsu': { lat: 51.5074, lng: -0.1278 }, // London area
-    '9q8y': { lat: 37.7749, lng: -122.4194 }, // SF area
-    'wx4g': { lat: 39.9042, lng: 116.4074 }, // Beijing area
-  };
-  
-  const prefix = geohash.substring(0, 4);
-  return prefixMap[prefix] || { lat: 0, lng: 0 };
+  return ngeohash.decode(geohash);
 }
 
 /**
@@ -106,28 +60,30 @@ export function getGeohashesInRadius(
   radiusKm: number,
   precision: number = 5
 ): string[] {
-  // Simplified implementation
-  // In production, this would calculate all geohash boxes that intersect with the radius
-  
   const center = encodeGeohash(centerLat, centerLng, precision);
   const neighbors: string[] = [center];
   
-  // Add some neighboring geohashes (simplified)
-  // In production, use proper geohash neighbor calculation
-  const variations = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'b', 'c'];
+  // Get all neighbors of the center geohash
+  const neighborHashes = ngeohash.neighbors(center);
+  neighbors.push(...neighborHashes);
   
-  for (let i = 0; i < 3; i++) {
-    const lastChar = center[center.length - 1];
-    const baseHash = center.substring(0, center.length - 1);
-    
-    for (const char of variations) {
-      if (char !== lastChar) {
-        neighbors.push(baseHash + char);
+  // For larger radius, we might need to check neighbors of neighbors
+  if (radiusKm > 10) {
+    const extendedNeighbors: string[] = [];
+    for (const neighbor of neighborHashes) {
+      try {
+        const neighborOfNeighbor = ngeohash.neighbors(neighbor);
+        extendedNeighbors.push(...neighborOfNeighbor);
+      } catch (error) {
+        // Skip invalid geohashes
+        continue;
       }
     }
+    neighbors.push(...extendedNeighbors);
   }
   
-  return neighbors;
+  // Remove duplicates
+  return [...new Set(neighbors)];
 }
 
 /**
@@ -162,4 +118,191 @@ export function isWithinRadius(
 ): boolean {
   const distance = calculateDistance(centerLat, centerLng, pointLat, pointLng);
   return distance <= radiusKm;
+}
+
+/**
+ * Blood type compatibility matrix
+ */
+export const BLOOD_TYPE_COMPATIBILITY = {
+  'A+': { canDonateTo: ['A+', 'AB+'], canReceiveFrom: ['A+', 'A-', 'O+', 'O-'] },
+  'A-': { canDonateTo: ['A+', 'A-', 'AB+', 'AB-'], canReceiveFrom: ['A-', 'O-'] },
+  'B+': { canDonateTo: ['B+', 'AB+'], canReceiveFrom: ['B+', 'B-', 'O+', 'O-'] },
+  'B-': { canDonateTo: ['B+', 'B-', 'AB+', 'AB-'], canReceiveFrom: ['B-', 'O-'] },
+  'AB+': { canDonateTo: ['AB+'], canReceiveFrom: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
+  'AB-': { canDonateTo: ['AB+', 'AB-'], canReceiveFrom: ['A-', 'B-', 'AB-', 'O-'] },
+  'O+': { canDonateTo: ['A+', 'B+', 'AB+', 'O+'], canReceiveFrom: ['O+', 'O-'] },
+  'O-': { canDonateTo: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], canReceiveFrom: ['O-'] }
+} as const;
+
+export type BloodType = keyof typeof BLOOD_TYPE_COMPATIBILITY;
+
+/**
+ * Check if one blood type can donate to another
+ */
+export function canDonateTo(donorType: BloodType, recipientType: BloodType): boolean {
+  return BLOOD_TYPE_COMPATIBILITY[donorType].canDonateTo.includes(recipientType as any);
+}
+
+/**
+ * Check if one blood type can receive from another
+ */
+export function canReceiveFrom(recipientType: BloodType, donorType: BloodType): boolean {
+  return BLOOD_TYPE_COMPATIBILITY[recipientType].canReceiveFrom.includes(donorType as any);
+}
+
+/**
+ * Interface for blood donor location data
+ */
+export interface BloodDonorLocation {
+  user_id: string;
+  user_code: string;
+  blood_type: BloodType;
+  lat: number;
+  lng: number;
+  geohash: string;
+  last_donation?: Date;
+  is_available: boolean;
+  contact_preference: 'email' | 'phone' | 'app';
+  emergency_contact: boolean;
+  created_at: Date;
+  updated_at: Date;
+  distance?: number; // Added for search results
+}
+
+/**
+ * Find compatible blood donors within radius
+ */
+export function findCompatibleDonors(
+  recipientBloodType: BloodType,
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number,
+  donors: BloodDonorLocation[]
+): BloodDonorLocation[] {
+  return donors
+    .filter(donor => {
+      // Check blood type compatibility
+      const isCompatible = canDonateTo(donor.blood_type, recipientBloodType);
+      
+      // Check if within radius
+      const isWithinRange = isWithinRadius(centerLat, centerLng, donor.lat, donor.lng, radiusKm);
+      
+      // Check if available
+      const isAvailable = donor.is_available;
+      
+      return isCompatible && isWithinRange && isAvailable;
+    })
+    .map(donor => ({
+      ...donor,
+      distance: calculateDistance(centerLat, centerLng, donor.lat, donor.lng)
+    }))
+    .sort((a, b) => a.distance - b.distance);
+}
+
+/**
+ * Find emergency donors (those who have emergency contact enabled)
+ */
+export function findEmergencyDonors(
+  recipientBloodType: BloodType,
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number,
+  donors: BloodDonorLocation[]
+): BloodDonorLocation[] {
+  return findCompatibleDonors(recipientBloodType, centerLat, centerLng, radiusKm, donors)
+    .filter(donor => donor.emergency_contact);
+}
+
+/**
+ * Calculate geohash precision based on radius
+ */
+export function getGeohashPrecisionForRadius(radiusKm: number): number {
+  if (radiusKm <= 1) return 7;      // ~150m precision
+  if (radiusKm <= 5) return 6;      // ~600m precision
+  if (radiusKm <= 20) return 5;     // ~2.4km precision
+  if (radiusKm <= 100) return 4;    // ~20km precision
+  return 3;                          // ~78km precision
+}
+
+/**
+ * Get geohash bounds for a given geohash
+ */
+export function getGeohashBounds(geohash: string): {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+} {
+  return ngeohash.decode_bbox(geohash);
+}
+
+/**
+ * Check if a location is within geohash bounds
+ */
+export function isLocationInGeohash(
+  lat: number,
+  lng: number,
+  geohash: string
+): boolean {
+  const bounds = getGeohashBounds(geohash);
+  return lat >= bounds.south && lat <= bounds.north && 
+         lng >= bounds.west && lng <= bounds.east;
+}
+
+/**
+ * Get all geohashes that intersect with a circle
+ */
+export function getGeohashesInCircle(
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number,
+  precision: number = 5
+): string[] {
+  const geohashes = getGeohashesInRadius(centerLat, centerLng, radiusKm, precision);
+  const intersectingGeohashes: string[] = [];
+  
+  for (const geohash of geohashes) {
+    const bounds = getGeohashBounds(geohash);
+    
+    // Check if any corner of the geohash is within the circle
+    const corners = [
+      { lat: bounds.north, lng: bounds.east },
+      { lat: bounds.north, lng: bounds.west },
+      { lat: bounds.south, lng: bounds.east },
+      { lat: bounds.south, lng: bounds.west },
+      { lat: (bounds.north + bounds.south) / 2, lng: (bounds.east + bounds.west) / 2 }
+    ];
+    
+    const hasIntersection = corners.some(corner => 
+      isWithinRadius(centerLat, centerLng, corner.lat, corner.lng, radiusKm)
+    );
+    
+    if (hasIntersection) {
+      intersectingGeohashes.push(geohash);
+    }
+  }
+  
+  return intersectingGeohashes;
+}
+
+/**
+ * Format distance for display
+ */
+export function formatDistance(distanceKm: number): string {
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)}m`;
+  } else if (distanceKm < 10) {
+    return `${distanceKm.toFixed(1)}km`;
+  } else {
+    return `${Math.round(distanceKm)}km`;
+  }
+}
+
+/**
+ * Get driving time estimate (rough calculation)
+ */
+export function estimateDrivingTime(distanceKm: number): number {
+  // Rough estimate: 50km/h average in city, 80km/h on highways
+  const averageSpeed = distanceKm < 10 ? 30 : 50; // km/h
+  return Math.round((distanceKm / averageSpeed) * 60); // minutes
 }

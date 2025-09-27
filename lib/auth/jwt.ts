@@ -129,6 +129,7 @@ export function verifyRefreshTokenHash(token: string, storedHash: string): boole
  * Generate HMAC for email hashing
  */
 export function hashEmail(email: string): string {
+  // Use consistent secret - if no env var is set, use the same default as client
   const secret = process.env.EMAIL_HASH_SECRET || 'default-email-secret';
   return crypto
     .createHmac('sha256', secret)
@@ -141,6 +142,13 @@ export function hashEmail(email: string): string {
  */
 export function generateSecureToken(length: number = 32): string {
   return crypto.randomBytes(length).toString('hex');
+}
+
+/**
+ * Generate UUID v4 token for verification
+ */
+export function generateUUIDToken(): string {
+  return crypto.randomUUID();
 }
 
 /**

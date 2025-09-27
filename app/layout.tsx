@@ -3,8 +3,8 @@ import "./globals.css";
 import { inter } from "./fonts";
 
 export const metadata: Metadata = {
-  title: "Next.js + MongoDB",
-  description: "Use MongoDB with Next.js",
+  title: "BLOOD NODE",
+  description: "A website for managing your blood network",
 };
 
 export default function RootLayout({

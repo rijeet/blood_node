@@ -4,7 +4,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { Relative, RelativeCreateInput } from '@/lib/models/relative';
 
-const DB_NAME = process.env.DB_NAME || 'blood_node';
+const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 const COLLECTION_NAME = 'relatives';
 
 /**

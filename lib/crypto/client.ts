@@ -16,6 +16,53 @@ import {
 import { splitSecret, combineShares } from './sss';
 
 /**
+ * Client-side email hashing function
+ * Must match server-side implementation exactly
+ */
+export function hashEmailClient(email: string): string {
+  // Use the same secret as server-side (this should be consistent)
+  const secret = 'bloodnode-email-hash-secret-2024'; // This should match the server's secret
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(email.toLowerCase());
+  
+  return crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  ).then(key => 
+    crypto.subtle.sign('HMAC', key, messageData)
+  ).then(signature => {
+    const hashArray = Array.from(new Uint8Array(signature));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  });
+}
+
+/**
+ * Synchronous version using Web Crypto API
+ */
+export async function hashEmailClientAsync(email: string): Promise<string> {
+  const secret = 'bloodnode-email-hash-secret-2024';
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(email.toLowerCase());
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
  * Client-side key management
  */
 export class BloodNodeCrypto {

@@ -4,7 +4,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { Invite, InviteCreateInput, InviteAcceptInput } from '@/lib/models/invite';
 
-const DB_NAME = process.env.DB_NAME || 'blood_node';
+const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 const COLLECTION_NAME = 'invites';
 
 /**
@@ -26,7 +26,7 @@ export async function createInvite(inviteData: InviteCreateInput): Promise<Invit
   
   const invite: Invite = {
     ...inviteData,
-    invite_token: '', // Will be set by caller
+    invite_token: inviteData.invite_token || '', // Use provided token or empty string
     status: 'pending',
     created_at: new Date(),
     accepted_at: null,
