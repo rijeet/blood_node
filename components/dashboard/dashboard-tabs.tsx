@@ -9,6 +9,7 @@ import { FamilyInviteModal } from '@/components/family/family-invite-modal';
 import { BloodGroupGrid } from '@/components/family/blood-group-grid';
 import { InviteTokenInput } from '@/components/family/invite-token-input';
 import { ProfileForm } from '@/components/profile/profile-form';
+import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { 
   Users, 
   Search, 
@@ -190,6 +191,9 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
                 </CardContent>
               </Card>
             </div>
+
+            {/* Notifications Panel */}
+            <NotificationPanel />
           </div>
         );
 
@@ -218,25 +222,12 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
       case 'emergency':
         return (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="h-5 w-5" />
-                  Emergency Blood Alert
-                </CardTitle>
-                <CardDescription>
-                  Send urgent alerts to nearby blood donors
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <EmergencyAlert
-                  onAlertSent={(alert) => {
-                    console.log('Emergency alert sent:', alert);
-                    onSuccess?.(`Emergency alert sent to ${alert.donors_notified} donors`);
-                  }}
-                />
-              </CardContent>
-            </Card>
+            <EmergencyAlert
+              onAlertSent={(alert) => {
+                console.log('Emergency alert sent:', alert);
+                onSuccess?.(`Emergency alert sent to ${alert.donors_notified} donors`);
+              }}
+            />
           </div>
         );
 

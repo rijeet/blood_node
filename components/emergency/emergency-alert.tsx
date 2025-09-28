@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LocationPicker } from '@/components/location/location-picker';
 import { 
   AlertTriangle, 
   MapPin, 
@@ -14,8 +13,10 @@ import {
   Send,
   Clock,
   Users,
-  Heart
+  Heart,
+  Navigation
 } from 'lucide-react';
+import { LocationPicker } from '@/components/location/location-picker';
 
 interface EmergencyAlertProps {
   onAlertSent?: (alert: any) => void;
@@ -23,6 +24,12 @@ interface EmergencyAlertProps {
 }
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+const PATIENT_CONDITIONS = [
+  'Operation',
+  'Thalassemia', 
+  'Accident',
+  'Delivery Patient (Maternity Case)'
+] as const;
 const URGENCY_LEVELS = [
   { value: 'low', label: 'Low Priority', color: 'text-yellow-600', bg: 'bg-yellow-50' },
   { value: 'medium', label: 'Medium Priority', color: 'text-orange-600', bg: 'bg-orange-50' },
@@ -35,16 +42,102 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
   const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
   const [radius, setRadius] = useState(25);
   const [urgencyLevel, setUrgencyLevel] = useState('high');
-  const [hospitalName, setHospitalName] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [additionalNotes, setAdditionalNotes] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  
+  // New emergency form fields
+  const [requiredBags, setRequiredBags] = useState<string>('');
+  const [hemoglobinLevel, setHemoglobinLevel] = useState<string>('');
+  const [donationPlace, setDonationPlace] = useState<string>('');
+  const [donationDate, setDonationDate] = useState<string>('');
+  const [donationTime, setDonationTime] = useState<string>('');
+  const [contactInfo, setContactInfo] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
+  const [patientCondition, setPatientCondition] = useState<string>('');
+
+  // Get user's current location on component mount
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser');
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Get address using reverse geocoding
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+          );
+          const data = await response.json();
+          
+          let address = `Current Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+          if (data && data.display_name) {
+            address = data.display_name;
+          }
+          
+          setLocation({
+            lat: lat,
+            lng: lng,
+            address: address
+          });
+        } catch (error) {
+          // Fallback to coordinates if reverse geocoding fails
+          setLocation({
+            lat: lat,
+            lng: lng,
+            address: `Current Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+          });
+        }
+        
+        setLocationLoading(false);
+      },
+      (error) => {
+        let errorMessage = 'Unable to retrieve your location';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied. Please allow location access to send emergency alerts.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out';
+            break;
+        }
+        setLocationError(errorMessage);
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      }
+    );
+  };
 
   const sendEmergencyAlert = async () => {
     if (!bloodType || !location) {
       setError('Please select a blood type and location');
+      return;
+    }
+
+    if (!requiredBags) {
+      setError('Please specify the number of blood bags required');
       return;
     }
 
@@ -65,9 +158,15 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           lng: location.lng,
           radius_km: radius,
           urgency_level: urgencyLevel,
-          hospital_name: hospitalName || undefined,
-          contact_phone: contactPhone || undefined,
-          additional_notes: additionalNotes || undefined
+          // New emergency fields
+          required_bags: parseInt(requiredBags),
+          hemoglobin_level: hemoglobinLevel || undefined,
+          donation_place: donationPlace || undefined,
+          donation_date: donationDate || undefined,
+          donation_time: donationTime || undefined,
+          contact_info: contactInfo || undefined,
+          reference: reference || undefined,
+          patient_condition: patientCondition || undefined
         })
       });
 
@@ -79,9 +178,14 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
         // Reset form
         setBloodType('');
         setLocation(null);
-        setHospitalName('');
-        setContactPhone('');
-        setAdditionalNotes('');
+        setRequiredBags('');
+        setHemoglobinLevel('');
+        setDonationPlace('');
+        setDonationDate('');
+        setDonationTime('');
+        setContactInfo('');
+        setReference('');
+        setPatientCondition('');
       } else {
         setError(data.error || 'Failed to send emergency alert');
       }
@@ -113,36 +217,204 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           Send an urgent alert to nearby blood donors. Use only for genuine emergencies.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Blood Type Selection */}
-        <div className="space-y-2">
-          <Label>Blood Type Required *</Label>
-          <div className="grid grid-cols-4 gap-2">
-            {BLOOD_TYPES.map((type) => (
-              <Button
-                key={type}
-                variant={bloodType === type ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setBloodType(type)}
-                className="text-xs"
-              >
-                {type}
-              </Button>
-            ))}
+      <CardContent className="space-y-8">
+        {/* Patient's Condition Section */}
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2 mb-6">
+            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+              <Heart className="w-5 h-5 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              💁‍♂️ Patient's Information
+            </h3>
+          </div>
+
+          {/* Blood Type Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+              <span className="text-red-500">🔴</span>
+              <span>Blood Group Required *</span>
+            </Label>
+            <div className="grid grid-cols-4 gap-3">
+              {BLOOD_TYPES.map((type) => (
+                <Button
+                  key={type}
+                  variant={bloodType === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setBloodType(type)}
+                  className={`text-sm font-medium transition-all duration-200 ${
+                    bloodType === type 
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg transform scale-105' 
+                      : 'hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                  }`}
+                >
+                  {type}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Patient's Condition */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+              <span className="text-red-500">💁‍♂️</span>
+              <span>Patient's Condition</span>
+            </Label>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Select a condition or enter custom..."
+                value={patientCondition}
+                onChange={(e) => setPatientCondition(e.target.value)}
+                list="patient-conditions"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+              <datalist id="patient-conditions">
+                {PATIENT_CONDITIONS.map((condition) => (
+                  <option key={condition} value={condition} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+
+          {/* Required Blood Bags */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+              <span className="text-red-500">💉</span>
+              <span>Required Blood: ___ bag(s) *</span>
+            </Label>
+            <Input
+              type="number"
+              min="1"
+              max="20"
+              placeholder="Enter number of blood bags needed"
+              value={requiredBags}
+              onChange={(e) => setRequiredBags(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          {/* Hemoglobin Level */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+              <span className="text-red-500">🩸</span>
+              <span>Hemoglobin Level</span>
+            </Label>
+            <Input
+              type="text"
+              placeholder="e.g., 7.5 g/dL"
+              value={hemoglobinLevel}
+              onChange={(e) => setHemoglobinLevel(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+        </div>
+
+        {/* Donation Details Section */}
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2 mb-6">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Hospital className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              🏥 Donation Details
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Donation Place */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                <span className="text-blue-500">🏢</span>
+                <span>Donation Place</span>
+              </Label>
+              <Input
+                type="text"
+                placeholder="e.g., General Hospital, Blood Bank"
+                value={donationPlace}
+                onChange={(e) => setDonationPlace(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            {/* Donation Date */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                <span className="text-blue-500">📆</span>
+                <span>Donation Date</span>
+              </Label>
+              <Input
+                type="date"
+                value={donationDate}
+                onChange={(e) => setDonationDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            {/* Donation Time */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                <span className="text-blue-500">⏰</span>
+                <span>Donation Time</span>
+              </Label>
+              <Input
+                type="time"
+                value={donationTime}
+                onChange={(e) => setDonationTime(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            {/* Contact Info */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                <span className="text-blue-500">☎️</span>
+                <span>Contact</span>
+              </Label>
+              <Input
+                type="text"
+                placeholder="e.g., +1-555-123-4567"
+                value={contactInfo}
+                onChange={(e) => setContactInfo(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+          </div>
+
+          {/* Reference */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+              <span className="text-blue-500">📖</span>
+              <span>Reference</span>
+            </Label>
+            <Input
+              type="text"
+              placeholder="e.g., Dr. Smith, Case #12345"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
           </div>
         </div>
 
         {/* Urgency Level */}
-        <div className="space-y-2">
-          <Label>Urgency Level *</Label>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-4">
+          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+            <span className="text-orange-500">⚠️</span>
+            <span>Urgency Level *</span>
+          </Label>
+          <div className="grid grid-cols-2 gap-3">
             {URGENCY_LEVELS.map((level) => (
               <Button
                 key={level.value}
                 variant={urgencyLevel === level.value ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setUrgencyLevel(level.value)}
-                className={`text-xs ${urgencyLevel === level.value ? '' : level.color}`}
+                className={`text-sm font-medium transition-all duration-200 ${
+                  urgencyLevel === level.value 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg transform scale-105' 
+                    : `${level.color} hover:bg-orange-50 hover:border-orange-300`
+                }`}
               >
                 {getUrgencyIcon(level.value)} {level.label}
               </Button>
@@ -151,12 +423,95 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
         </div>
 
         {/* Location Selection */}
-        <div className="space-y-2">
+        <div className="space-y-4">
           <Label>Emergency Location *</Label>
-          <LocationPicker
-            onLocationSelect={setLocation}
-            initialLocation={location || undefined}
-          />
+          
+          {/* Automatic Location Detection */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <Navigation className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {location ? 'Location Ready' : 'Getting Location...'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {location ? 
+                      (location.address || `Coordinates: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`) :
+                      'Requesting permission to access your location'
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {locationLoading && (
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-sm">Getting location...</span>
+                </div>
+              )}
+              
+              {locationError && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getCurrentLocation}
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  Retry Location
+                </Button>
+              )}
+            </div>
+
+            {locationError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300">{locationError}</p>
+              </div>
+            )}
+
+            {location && (
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Location acquired successfully! Emergency alert will be sent from your current location.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Manual Location Selection */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <div className="h-px bg-gray-300 dark:bg-gray-600 flex-1"></div>
+              <span className="text-sm text-gray-500 dark:text-gray-400 px-2">OR</span>
+              <div className="h-px bg-gray-300 dark:bg-gray-600 flex-1"></div>
+            </div>
+            
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select Location Manually
+              </Label>
+              <LocationPicker
+                onLocationSelect={(locationData: any) => {
+                  setLocation({
+                    lat: locationData.lat,
+                    lng: locationData.lng,
+                    address: locationData.address
+                  });
+                }}
+                initialLocation={location || undefined}
+                hideHeader={true}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Search Radius */}
@@ -176,46 +531,6 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           </p>
         </div>
 
-        {/* Hospital Information */}
-        <div className="space-y-4">
-          <h4 className="font-medium flex items-center gap-2">
-            <Hospital className="h-4 w-4" />
-            Hospital Information (Optional)
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="hospital">Hospital Name</Label>
-              <Input
-                id="hospital"
-                placeholder="e.g., General Hospital"
-                value={hospitalName}
-                onChange={(e) => setHospitalName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Contact Phone</Label>
-              <Input
-                id="phone"
-                placeholder="e.g., +1-555-123-4567"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Notes */}
-        <div className="space-y-2">
-          <Label htmlFor="notes">Additional Information</Label>
-          <textarea
-            id="notes"
-            className="w-full p-3 border border-gray-300 rounded-md resize-none"
-            rows={3}
-            placeholder="Any additional details about the emergency, special requirements, etc."
-            value={additionalNotes}
-            onChange={(e) => setAdditionalNotes(e.target.value)}
-          />
-        </div>
 
         {/* Emergency Notice */}
         <div className="p-4 bg-red-50 border border-red-200 rounded-md">
@@ -236,11 +551,15 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
         {/* Send Button */}
         <Button
           onClick={sendEmergencyAlert}
-          disabled={isSending || !bloodType || !location}
-          className="w-full bg-red-600 hover:bg-red-700"
+          disabled={isSending || !bloodType || !location || locationLoading || !requiredBags}
+          className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
         >
-          <Send className="h-4 w-4 mr-2" />
-          {isSending ? 'Sending Alert...' : 'Send Emergency Alert'}
+          <Send className="h-5 w-5 mr-2" />
+          {isSending ? 'Sending Alert...' : 
+           locationLoading ? 'Getting Location...' :
+           !location ? 'Location Required' :
+           !requiredBags ? 'Blood Bags Required' :
+           'Send Emergency Alert'}
         </Button>
 
         {/* Error Display */}
@@ -259,17 +578,6 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           </div>
         )}
 
-        {/* Statistics */}
-        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">25km</div>
-            <div className="text-xs text-gray-600">Default Radius</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">~50</div>
-            <div className="text-xs text-gray-600">Emergency Donors</div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

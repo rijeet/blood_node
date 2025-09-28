@@ -2,14 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/lib/auth/jwt';
 import { findUserById } from '@/lib/db/users';
-import { 
-  findEmergencyDonors, 
-  BloodType,
-  BloodDonorLocation 
-} from '@/lib/geo';
+import { createEmergencyAlert, updateEmergencyAlertStatus } from '@/lib/db/emergency';
+import { getUsersWithAvailability } from '@/lib/db/users';
+import { createEmergencyNotificationsForUsers } from '@/lib/db/notifications';
+import { getGeohashesInRadius } from '@/lib/geo';
 import { sendEmail, sendBatchEmails } from '@/lib/email/service';
-import { MongoClient } from 'mongodb';
-import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
@@ -51,21 +49,28 @@ export async function POST(request: NextRequest) {
       lng, 
       radius_km = 25,
       urgency_level = 'high', // low, medium, high, critical
-      hospital_name,
-      contact_phone,
-      additional_notes
+      // New emergency fields
+      required_bags,
+      hemoglobin_level,
+      donation_place,
+      donation_date,
+      donation_time,
+      contact_info,
+      reference,
+      patient_condition,
+      location_address
     } = body;
 
     // Validate required fields
-    if (!blood_type || lat === undefined || lng === undefined) {
+    if (!blood_type || lat === undefined || lng === undefined || !required_bags) {
       return NextResponse.json(
-        { error: 'Blood type, latitude, and longitude are required' },
+        { error: 'Blood type, latitude, longitude, and required bags are required' },
         { status: 400 }
       );
     }
 
     // Validate blood type
-    const validBloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     if (!validBloodTypes.includes(blood_type)) {
       return NextResponse.json(
         { error: 'Invalid blood type' },
@@ -82,51 +87,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Connect to database
-    const client = await clientPromise;
-    if (!client) {
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
-
-    const donorsCollection = client.db(DB_NAME).collection<BloodDonorLocation>('donor_locations');
-    const usersCollection = client.db(DB_NAME).collection('users');
+    // Get geohashes for the search area
+    const geohashes = getGeohashesInRadius(lat, lng, radius_km, 5);
     
-    // Find emergency donors in the area
-    const donors = await donorsCollection.find({
-      emergency_contact: true,
-      is_available: true
-    }).toArray();
+    // Find compatible donors in the area using geohash
+    const donors = await getUsersWithAvailability({
+      blood_group: blood_type,
+      geohashes: geohashes,
+      public_profile: true
+    });
 
-    const emergencyDonors = findEmergencyDonors(blood_type, lat, lng, radius_km, donors);
-
-    if (emergencyDonors.length === 0) {
+    if (donors.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No emergency donors found in the specified area',
+        message: 'No compatible donors found in the specified area',
         alert_sent: false,
         donors_notified: 0
       });
     }
 
-    // Get user email addresses for the donors
-    const donorUserCodes = emergencyDonors.map(d => d.user_code);
-    const donorUsers = await usersCollection.find({
-      user_code: { $in: donorUserCodes }
-    }).toArray();
+    // Create emergency alert in database first
+    const emergencyAlert = await createEmergencyAlert(
+      new ObjectId(user._id),
+      {
+        blood_type,
+        location_lat: lat,
+        location_lng: lng,
+        location_address,
+        radius_km,
+        urgency_level,
+        patient_condition,
+        required_bags: parseInt(required_bags),
+        hemoglobin_level,
+        donation_place,
+        donation_date,
+        donation_time,
+        contact_info,
+        reference
+      }
+    );
 
     // Create email map
     const userEmailMap = new Map();
-    donorUsers.forEach(user => {
+    donors.forEach(donor => {
       // Note: In a real implementation, you'd need to store email addresses
       // For now, we'll use a mock email based on user code
-      userEmailMap.set(user.user_code, `donor-${user.user_code.toLowerCase()}@bloodnode.example`);
+      userEmailMap.set(donor.user_code, `donor-${donor.user_code.toLowerCase()}@bloodnode.example`);
     });
 
     // Prepare emergency alert emails
-    const alertEmails = emergencyDonors.map(donor => {
+    const alertEmails = donors.map(donor => {
       const urgencyEmojis: Record<string, string> = {
         low: '🟡',
         medium: '🟠', 
@@ -175,22 +185,23 @@ export async function POST(request: NextRequest) {
                 <div class="alert-box">
                   <h2>🚨 URGENT: Blood Donation Needed</h2>
                   <p><strong>Blood Type Required:</strong> <span class="urgent">${blood_type}</span></p>
-                  <p><strong>Distance from you:</strong> ${(donor.distance || 0) < 1 ? Math.round((donor.distance || 0) * 1000) + 'm' : (donor.distance || 0).toFixed(1) + 'km'}</p>
-                  ${hospital_name ? `<p><strong>Hospital:</strong> ${hospital_name}</p>` : ''}
-                  ${contact_phone ? `<p><strong>Contact:</strong> ${contact_phone}</p>` : ''}
+                  <p><strong>Required Bags:</strong> ${required_bags} bag(s)</p>
+                  ${patient_condition ? `<p><strong>Patient Condition:</strong> ${patient_condition}</p>` : ''}
+                  ${hemoglobin_level ? `<p><strong>Hemoglobin Level:</strong> ${hemoglobin_level}</p>` : ''}
+                  ${donation_place ? `<p><strong>Donation Place:</strong> ${donation_place}</p>` : ''}
+                  ${donation_date ? `<p><strong>Donation Date:</strong> ${donation_date}</p>` : ''}
+                  ${donation_time ? `<p><strong>Donation Time:</strong> ${donation_time}</p>` : ''}
+                  ${contact_info ? `<p><strong>Contact:</strong> ${contact_info}</p>` : ''}
+                  ${reference ? `<p><strong>Reference:</strong> ${reference}</p>` : ''}
                 </div>
 
                 <h3>📍 Location Details</h3>
                 <div class="info-box">
+                  ${location_address ? `<p><strong>Address:</strong> ${location_address}</p>` : ''}
                   <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
                   <p><strong>Search Radius:</strong> ${radius_km}km</p>
                   <p><strong>Alert Time:</strong> ${new Date().toLocaleString()}</p>
                 </div>
-
-                ${additional_notes ? `
-                  <h3>📝 Additional Information</h3>
-                  <p>${additional_notes}</p>
-                ` : ''}
 
                 <h3>🩸 Your Blood Type: ${donor.blood_type}</h3>
                 <p>You are a compatible donor for this emergency!</p>
@@ -226,7 +237,7 @@ export async function POST(request: NextRequest) {
 
       return {
         to: userEmailMap.get(donor.user_code) || `donor-${donor.user_code}@bloodnode.example`,
-        subject: `${urgencyEmojis[urgency_level]} URGENT: ${blood_type} Blood Needed - ${(donor.distance || 0) < 1 ? Math.round((donor.distance || 0) * 1000) + 'm' : (donor.distance || 0).toFixed(1) + 'km'} away`,
+        subject: `${urgencyEmojis[urgency_level]} URGENT: ${blood_type} Blood Needed - ${required_bags} bag(s) - ${patient_condition || 'Emergency'}`,
         html
       };
     });
@@ -245,37 +256,49 @@ export async function POST(request: NextRequest) {
       console.error('Emergency email error:', emailError);
     }
 
-    // Log the emergency alert
-    const alertsCollection = client.db(DB_NAME).collection('emergency_alerts');
-    await alertsCollection.insertOne({
-      alert_id: Date.now().toString(),
-      requester_user_id: user._id,
-      requester_user_code: user.user_code,
-      blood_type,
-      location: { lat, lng },
-      radius_km,
-      urgency_level,
-      hospital_name,
-      contact_phone,
-      additional_notes,
-      donors_notified: emailsSent,
-      created_at: new Date(),
-      status: 'sent'
+    // Create notifications for all users in the area (not just compatible donors)
+    const allUsersInArea = await getUsersWithAvailability({
+      geohashes: geohashes,
+      public_profile: true
     });
+
+    // Create notifications for users who might be interested in the emergency
+    const notificationUserIds = allUsersInArea.map(user => new ObjectId(user._id));
+    
+    if (notificationUserIds.length > 0) {
+      await createEmergencyNotificationsForUsers(
+        emergencyAlert._id!,
+        blood_type,
+        emergencyAlert.location_geohash,
+        location_address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        urgency_level,
+        notificationUserIds
+      );
+    }
+
+    // Update the emergency alert with notification count
+    await updateEmergencyAlertStatus(
+      emergencyAlert._id!,
+      'active',
+      emailsSent,
+      0
+    );
 
     return NextResponse.json({
       success: true,
       message: 'Emergency alert sent successfully',
       alert_sent: true,
       donors_notified: emailsSent,
-      total_donors_found: emergencyDonors.length,
+      total_donors_found: donors.length,
+      alert_id: emergencyAlert._id?.toString(),
       alert_details: {
         blood_type,
         location: { lat, lng },
+        location_address,
         radius_km,
         urgency_level,
-        hospital_name,
-        contact_phone
+        required_bags,
+        patient_condition
       }
     });
 

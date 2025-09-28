@@ -83,13 +83,15 @@ export const COLLECTIONS: CollectionInfo[] = [
   {
     name: 'emergency_alerts',
     indexes: [
-      { key: { alert_id: 1 }, options: { unique: true } },
+      { key: { _id: 1 } },
       { key: { user_id: 1 } },
-      { key: { blood_group: 1 } },
+      { key: { blood_type: 1 } },
       { key: { location_geohash: 1 } },
       { key: { status: 1 } },
+      { key: { urgency_level: 1 } },
       { key: { created_at: 1 } },
-      { key: { expires_at: 1 }, options: { expireAfterSeconds: 0 } }
+      { key: { expires_at: 1 }, options: { expireAfterSeconds: 0 } },
+      { key: { location_geohash: 1, blood_type: 1, status: 1 } }
     ]
   },
   {
@@ -106,12 +108,16 @@ export const COLLECTIONS: CollectionInfo[] = [
   {
     name: 'notifications',
     indexes: [
-      { key: { notification_id: 1 }, options: { unique: true } },
+      { key: { _id: 1 } },
       { key: { user_id: 1 } },
       { key: { type: 1 } },
       { key: { read: 1 } },
       { key: { created_at: 1 } },
-      { key: { expires_at: 1 }, options: { expireAfterSeconds: 0 } }
+      { key: { expires_at: 1 }, options: { expireAfterSeconds: 0 } },
+      { key: { emergency_alert_id: 1 } },
+      { key: { location_geohash: 1 } },
+      { key: { user_id: 1, read: 1 } },
+      { key: { user_id: 1, type: 1 } }
     ]
   },
   {
