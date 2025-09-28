@@ -16,6 +16,7 @@ interface User {
   email_verified: boolean;
   public_profile: boolean;
   plan: string;
+  location_address?: string;
 }
 
 export default function Home() {
@@ -33,6 +34,26 @@ export default function Home() {
     if (userData && accessToken) {
       setCurrentUser(JSON.parse(userData));
       setCurrentView('dashboard');
+      
+      // Fetch full profile data including location
+      const fetchProfileData = async () => {
+        try {
+          const profileResponse = await fetch('/api/profile', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            setCurrentUser(profileData.user);
+          }
+        } catch (error) {
+          console.error('Failed to fetch profile data:', error);
+        }
+      };
+      
+      fetchProfileData();
     } else {
       // Check URL parameters for login redirect
       const urlParams = new URLSearchParams(window.location.search);
@@ -56,9 +77,26 @@ export default function Home() {
     localStorage.setItem('pending_verification', JSON.stringify(userData));
   };
 
-  const handleLoginSuccess = (data: any) => {
+  const handleLoginSuccess = async (data: any) => {
+    // Store basic user data
     setCurrentUser(data.user);
     setSuccess('Welcome back!');
+    
+    // Fetch full profile data including location
+    try {
+      const profileResponse = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${data.access_token}`
+        }
+      });
+      
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        setCurrentUser(profileData.user);
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile data:', error);
+    }
     
     // Check if there's a return URL to redirect to
     const returnUrl = localStorage.getItem('returnUrl');

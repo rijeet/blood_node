@@ -27,6 +27,7 @@ interface DashboardTabsProps {
     email_verified: boolean;
     public_profile: boolean;
     plan: string;
+    location_address?: string;
   };
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
@@ -98,8 +99,21 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">Not Set</div>
-                  <p className="text-xs text-muted-foreground">Update in settings</p>
+                  <div className="text-2xl font-bold">
+                    {user.location_address ? (
+                      <span className="text-green-600 truncate" title={user.location_address}>
+                        {user.location_address.length > 20 
+                          ? `${user.location_address.substring(0, 20)}...` 
+                          : user.location_address
+                        }
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Not Set</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {user.location_address ? 'Location configured' : 'Update in settings'}
+                  </p>
                 </CardContent>
               </Card>
             </div>
