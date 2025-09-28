@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/lib/api-client';
 
 interface Donor {
   user_code: string;
@@ -26,46 +29,85 @@ export function DonorSearch({ onError }: DonorSearchProps) {
     blood_group: '',
     lat: '',
     lng: '',
-    radius_km: '50',
     only_available: true
   });
   const [donors, setDonors] = useState<Donor[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Get user's current location
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser');
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setSearchData(prev => ({
+          ...prev,
+          lat: position.coords.latitude.toString(),
+          lng: position.coords.longitude.toString()
+        }));
+        setLocationLoading(false);
+      },
+      (error) => {
+        let errorMessage = 'Unable to retrieve your location';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied by user';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out';
+            break;
+        }
+        setLocationError(errorMessage);
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      }
+    );
+  };
+
+  // Auto-get location on component mount
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!searchData.lat || !searchData.lng) {
+      onError('Please allow location access to search for donors');
+      return;
+    }
+
     setLoading(true);
     setSearched(true);
 
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        onError('Not authenticated');
-        return;
-      }
-
       const params = new URLSearchParams({
         blood_group: searchData.blood_group,
         lat: searchData.lat,
         lng: searchData.lng,
-        radius_km: searchData.radius_km,
+        radius_km: '20', // Fixed 20km radius
         only_available: searchData.only_available.toString()
       });
 
-      const response = await fetch(`/api/donors/search?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Search failed');
-      }
-
-      const result = await response.json();
-      setDonors(result.donors);
+      const result = await apiClient.get(`/api/donors/search?${params}`);
+      setDonors(result.donors || []);
 
     } catch (error: any) {
       onError(error.message || 'Search failed');
@@ -97,16 +139,37 @@ export function DonorSearch({ onError }: DonorSearchProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6">Find Blood Donors</h2>
-      
-      <form onSubmit={handleSearch} className="space-y-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Blood Group Needed</label>
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold gradient-text mb-2">
+          Find Blood Donors
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Search for compatible blood donors in your area
+        </p>
+      </div>
+
+      {/* Search Form */}
+      <Card className="p-8">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+            <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Search Donors</h2>
+        </div>
+
+        <form onSubmit={handleSearch} className="space-y-6">
+          {/* Blood Group Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Blood Group Needed
+            </label>
             <select
               required
-              className="w-full p-2 border rounded-md"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 input-focus"
               value={searchData.blood_group}
               onChange={(e) => setSearchData(prev => ({ ...prev, blood_group: e.target.value }))}
             >
@@ -122,123 +185,219 @@ export function DonorSearch({ onError }: DonorSearchProps) {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Search Radius (km)</label>
-            <select
-              className="w-full p-2 border rounded-md"
-              value={searchData.radius_km}
-              onChange={(e) => setSearchData(prev => ({ ...prev, radius_km: e.target.value }))}
-            >
-              <option value="10">10 km</option>
-              <option value="25">25 km</option>
-              <option value="50">50 km</option>
-              <option value="100">100 km</option>
-              <option value="200">200 km</option>
-            </select>
-          </div>
-        </div>
+          {/* Location Status */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Search Radius: <span className="text-red-600 font-semibold">20 km</span>
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {searchData.lat && searchData.lng ? 
+                      `Location: ${parseFloat(searchData.lat).toFixed(4)}, ${parseFloat(searchData.lng).toFixed(4)}` :
+                      'Getting your location...'
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {locationLoading && (
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-sm">Getting location...</span>
+                </div>
+              )}
+              
+              {locationError && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getCurrentLocation}
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  Retry Location
+                </Button>
+              )}
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Latitude</label>
+            {locationError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300">{locationError}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Availability Filter */}
+          <div className="flex items-start space-x-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
             <input
-              type="number"
-              step="any"
-              className="w-full p-2 border rounded-md"
-              value={searchData.lat}
-              onChange={(e) => setSearchData(prev => ({ ...prev, lat: e.target.value }))}
-              placeholder="40.7128"
+              type="checkbox"
+              id="only_available"
+              className="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+              checked={searchData.only_available}
+              onChange={(e) => setSearchData(prev => ({ ...prev, only_available: e.target.checked }))}
             />
+            <div className="space-y-1">
+              <label htmlFor="only_available" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Only show available donors (120+ days since last donation)
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Filter to show only donors who are currently available for donation
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Longitude</label>
-            <input
-              type="number"
-              step="any"
-              className="w-full p-2 border rounded-md"
-              value={searchData.lng}
-              onChange={(e) => setSearchData(prev => ({ ...prev, lng: e.target.value }))}
-              placeholder="-74.0060"
-            />
-          </div>
-        </div>
+          {/* Search Button */}
+          <Button 
+            type="submit" 
+            disabled={loading || !searchData.lat || !searchData.lng || !searchData.blood_group}
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none btn-animate"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Searching...</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Search Donors</span>
+              </div>
+            )}
+          </Button>
+        </form>
+      </Card>
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="only_available"
-            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            checked={searchData.only_available}
-            onChange={(e) => setSearchData(prev => ({ ...prev, only_available: e.target.checked }))}
-          />
-          <label htmlFor="only_available" className="text-sm">
-            Only show available donors (120+ days since last donation)
-          </label>
-        </div>
-
-        <Button 
-          type="submit" 
-          disabled={loading}
-          className="w-full"
-        >
-          {loading ? 'Searching...' : 'Search Donors'}
-        </Button>
-      </form>
-
+      {/* Search Results */}
       {searched && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Found {donors.length} compatible donor{donors.length !== 1 ? 's' : ''}
-          </h3>
+        <div className="space-y-6">
+          {/* Results Header */}
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Search Results
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Found <span className="font-semibold text-red-600">{donors.length}</span> compatible donor{donors.length !== 1 ? 's' : ''} within 20km
+            </p>
+          </div>
 
           {donors.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No compatible donors found in your area.</p>
-              <p className="text-sm mt-2">Try expanding your search radius or checking different blood groups.</p>
-            </div>
+            <Card className="p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.571M15 6.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  No Donors Found
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  No compatible donors found in your area within 20km radius.
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  Try searching for a different blood group or check back later for new donors.
+                </p>
+              </div>
+            </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {donors.map((donor) => (
-                <div key={donor.user_code} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h4 className="font-medium">
+                <Card key={donor.user_code} className="p-6 card-hover bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-gray-200 dark:border-gray-700">
+                  <div className="space-y-4">
+                    {/* Donor Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
                           {donor.name || `Donor ${donor.user_code}`}
                         </h4>
-                        {getAvailabilityBadge(donor)}
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                          {donor.user_code}
+                        </p>
                       </div>
-                      
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p><strong>Blood Group:</strong> {donor.blood_group}</p>
-                        <p><strong>User Code:</strong> {donor.user_code}</p>
-                        {donor.location_address && (
-                          <p><strong>Location:</strong> {donor.location_address}</p>
-                        )}
-                        {donor.last_donation_date && (
-                          <p><strong>Last Donation:</strong> {new Date(donor.last_donation_date).toLocaleDateString()}</p>
-                        )}
-                        {donor.availability.daysSinceLastDonation !== null && (
-                          <p><strong>Days Since Last Donation:</strong> {donor.availability.daysSinceLastDonation}</p>
-                        )}
+                      {getAvailabilityBadge(donor)}
+                    </div>
+
+                    {/* Blood Group */}
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                        <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Blood Group</p>
+                        <p className="text-xl font-bold text-red-600 dark:text-red-400">{donor.blood_group}</p>
                       </div>
                     </div>
-                    
-                    <div className="ml-4">
+
+                    {/* Location */}
+                    {donor.location_address && (
+                      <div className="flex items-start space-x-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg mt-0.5">
+                          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Location</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{donor.location_address}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Donation Info */}
+                    {donor.availability.daysSinceLastDonation !== null && (
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Last Donation</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {donor.availability.daysSinceLastDonation} days ago
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contact Button */}
+                    <div className="pt-2">
                       <Button 
-                        size="sm" 
-                        variant="outline"
+                        className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] btn-animate"
                         onClick={() => {
                           // In a real app, this would open a contact modal or send a message
                           alert(`Contact functionality not yet implemented for ${donor.user_code}`);
                         }}
                       >
-                        Contact
+                        <div className="flex items-center justify-center space-x-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          <span>Contact Donor</span>
+                        </div>
                       </Button>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}

@@ -41,7 +41,7 @@ export function generateAccessToken(payload: {
     },
     JWT_SECRET,
     {
-      expiresIn: '15m', // Short-lived access token
+      expiresIn: process.env.NODE_ENV === 'development' ? '24h' : '15m', // Longer for dev, short for prod
       issuer: 'blood-node',
       audience: 'blood-node-app',
     }

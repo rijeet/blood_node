@@ -67,19 +67,34 @@ export function getGeohashesInRadius(
   const neighborHashes = ngeohash.neighbors(center);
   neighbors.push(...neighborHashes);
   
-  // For larger radius, we might need to check neighbors of neighbors
+  // For larger radius, we need to check more levels of neighbors
   if (radiusKm > 10) {
     const extendedNeighbors: string[] = [];
+    
+    // Level 2: neighbors of neighbors
     for (const neighbor of neighborHashes) {
       try {
         const neighborOfNeighbor = ngeohash.neighbors(neighbor);
         extendedNeighbors.push(...neighborOfNeighbor);
       } catch (error) {
-        // Skip invalid geohashes
         continue;
       }
     }
     neighbors.push(...extendedNeighbors);
+    
+    // For 20km+ radius, add level 3 neighbors
+    if (radiusKm >= 20) {
+      const level3Neighbors: string[] = [];
+      for (const neighbor of extendedNeighbors) {
+        try {
+          const neighborOfNeighborOfNeighbor = ngeohash.neighbors(neighbor);
+          level3Neighbors.push(...neighborOfNeighborOfNeighbor);
+        } catch (error) {
+          continue;
+        }
+      }
+      neighbors.push(...level3Neighbors);
+    }
   }
   
   // Remove duplicates

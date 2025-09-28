@@ -15,6 +15,13 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DATABASE = process.env.MONGODB_DATABASE;
 const EMAIL_HASH_SECRET = process.env.EMAIL_HASH_SECRET || 'default-email-secret';
 
+// Import geohash function directly
+const ngeohash = require('ngeohash');
+
+function encodeGeohash(lat, lng, precision = 5) {
+  return ngeohash.encode(lat, lng, precision);
+}
+
 if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI environment variable is required');
   process.exit(1);
@@ -26,7 +33,7 @@ if (!MONGODB_DATABASE) {
 }
 
 // Load user data from tempuser2.json
-const userDataPath = path.join(__dirname, '..', 'tempuser2.json');
+const userDataPath = path.join(__dirname, '..', '..', 'tempuser2.json');
 if (!fs.existsSync(userDataPath)) {
   console.error('❌ tempuser2.json file not found');
   process.exit(1);
@@ -132,7 +139,17 @@ function processUsers(users) {
       email_verified: true, // Set to true as requested
       public_profile: user.public_profile || false,
       blood_group_public: user.blood_group_public || null,
-      location_geohash: user.location_geohash || null,
+      location_geohash: user.location_geohash ? 
+        (() => {
+          // Convert coordinates to geohash if it's in "lat,lng" format
+          if (typeof user.location_geohash === 'string' && user.location_geohash.includes(',')) {
+            const [lat, lng] = user.location_geohash.split(',').map(coord => parseFloat(coord.trim()));
+            const geohash = encodeGeohash(lat, lng, 5); // 5-character precision geohash
+            console.log(`Converting ${user.location_geohash} -> ${geohash}`);
+            return geohash;
+          }
+          return user.location_geohash;
+        })() : null,
       location_address: user.location_address || null,
       name: user.name || null,
       phone: user.phone || null,

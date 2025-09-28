@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/lib/api-client';
 
 interface UserProfile {
   id: string;
@@ -52,23 +53,7 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
 
   const loadProfile = async () => {
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        onError('Not authenticated');
-        return;
-      }
-
-      const response = await fetch('/api/profile', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load profile');
-      }
-
-      const result = await response.json();
+      const result = await apiClient.get('/api/profile');
       setProfile(result.user);
       
       // Populate form data
@@ -93,33 +78,14 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
     setSaving(true);
 
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (!accessToken) {
-        onError('Not authenticated');
-        return;
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({
-          name: formData.name || null,
-          phone: formData.phone || null,
-          blood_group_public: formData.blood_group_public || null,
-          location_address: formData.location_address || null,
-          last_donation_date: formData.last_donation_date || null
-        })
+      const result = await apiClient.put('/api/profile', {
+        name: formData.name || null,
+        phone: formData.phone || null,
+        blood_group_public: formData.blood_group_public || null,
+        location_address: formData.location_address || null,
+        last_donation_date: formData.last_donation_date || null
       });
 
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'Failed to update profile');
-      }
-
-      const result = await response.json();
       setProfile(result.user);
       onSuccess('Profile updated successfully!');
 
