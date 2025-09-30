@@ -250,6 +250,25 @@ export async function updateLastDonationDate(
 }
 
 /**
+ * Update last donation date (ObjectId version)
+ */
+export async function updateUserLastDonationDate(
+  userId: ObjectId,
+  donationDate: Date
+): Promise<void> {
+  const collection = await getUsersCollection();
+  await collection.updateOne(
+    { _id: userId },
+    { 
+      $set: { 
+        last_donation_date: donationDate,
+        updated_at: new Date() 
+      } 
+    }
+  );
+}
+
+/**
  * Check if user code exists
  */
 export async function userCodeExists(userCode: string): Promise<boolean> {

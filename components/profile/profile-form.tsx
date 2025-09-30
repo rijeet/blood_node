@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { apiClient } from '@/lib/api-client';
+import { DonationRecordButton } from './donation-record-button';
 
 interface UserProfile {
   id: string;
@@ -45,6 +48,17 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
     last_donation_date: '',
     public_profile: false
   });
+  
+  // Donation record form state
+  const [showDonationRecordModal, setShowDonationRecordModal] = useState(false);
+  const [donationRecordForm, setDonationRecordForm] = useState({
+    donation_date: '',
+    blood_group: '',
+    bags_donated: 1,
+    donation_place: ''
+  });
+  const [donationRecordSaving, setDonationRecordSaving] = useState(false);
+  const previousDonationDate = useRef<string>('');
 
   // Load profile data
   useEffect(() => {
@@ -57,15 +71,27 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
       setProfile(result.user);
       
       // Populate form data
+      const donationDate = result.user.last_donation_date ? 
+        new Date(result.user.last_donation_date).toISOString().split('T')[0] : '';
+      
       setFormData({
         name: result.user.name || '',
         phone: result.user.phone || '',
         blood_group_public: result.user.blood_group_public || '',
         location_address: result.user.location_address || '',
-        last_donation_date: result.user.last_donation_date ? 
-          new Date(result.user.last_donation_date).toISOString().split('T')[0] : '',
+        last_donation_date: donationDate,
         public_profile: result.user.public_profile
       });
+      
+      // Store the initial donation date for comparison
+      previousDonationDate.current = donationDate;
+      
+      // Pre-populate donation record form with current blood group
+      setDonationRecordForm(prev => ({
+        ...prev,
+        blood_group: result.user.blood_group_public || '',
+        donation_date: donationDate
+      }));
     } catch (error: any) {
       onError(error.message || 'Failed to load profile');
     } finally {
@@ -93,6 +119,52 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
       onError(error.message || 'Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Handle donation date change
+  const handleDonationDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    setFormData(prev => ({ ...prev, last_donation_date: newDate }));
+    
+    // Check if the date has changed and is not empty
+    if (newDate !== previousDonationDate.current && newDate) {
+      // Update the donation record form with the new date
+      setDonationRecordForm(prev => ({
+        ...prev,
+        donation_date: newDate
+      }));
+      
+      // Show the donation record modal
+      setShowDonationRecordModal(true);
+    }
+    
+    // Update the previous date reference
+    previousDonationDate.current = newDate;
+  };
+
+  // Handle donation record form submission
+  const handleDonationRecordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDonationRecordSaving(true);
+
+    try {
+      const result = await apiClient.post('/api/profile/donation-records', {
+        donation_date: donationRecordForm.donation_date,
+        blood_group: donationRecordForm.blood_group,
+        bags_donated: donationRecordForm.bags_donated,
+        donation_place: donationRecordForm.donation_place || null
+      });
+
+      // Close the modal and refresh profile
+      setShowDonationRecordModal(false);
+      await loadProfile();
+      onSuccess('Donation record added successfully!');
+
+    } catch (error: any) {
+      onError(error.message || 'Failed to add donation record');
+    } finally {
+      setDonationRecordSaving(false);
     }
   };
 
@@ -229,6 +301,28 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
             </div>
           </Card>
         )}
+
+        {/* Donation Records Card */}
+        {profile && (
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800 card-hover">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100">Donation Records</h3>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-purple-700 dark:text-purple-300">
+                Track your blood donation history and see your impact on saving lives.
+              </p>
+              <div className="flex justify-center">
+                <DonationRecordButton userId={profile.id} />
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Profile Form */}
@@ -315,7 +409,7 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
                   type="date"
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 input-focus"
                   value={formData.last_donation_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, last_donation_date: e.target.value }))}
+                  onChange={handleDonationDateChange}
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Used to calculate availability (120-day rule)
@@ -394,6 +488,123 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
           </div>
         </form>
       </Card>
+
+      {/* Donation Record Modal */}
+      {showDonationRecordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Add Donation Record</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowDonationRecordModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Since you updated your last donation date, would you like to add a donation record?
+              </p>
+            </div>
+            
+            <form onSubmit={handleDonationRecordSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="donation_date">Donation Date</Label>
+                  <Input
+                    id="donation_date"
+                    type="date"
+                    value={donationRecordForm.donation_date}
+                    onChange={(e) => setDonationRecordForm(prev => ({ ...prev, donation_date: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="blood_group">Blood Group</Label>
+                  <select
+                    id="blood_group"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    value={donationRecordForm.blood_group}
+                    onChange={(e) => setDonationRecordForm(prev => ({ ...prev, blood_group: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bags_donated">Bags Donated</Label>
+                  <select
+                    id="bags_donated"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    value={donationRecordForm.bags_donated}
+                    onChange={(e) => setDonationRecordForm(prev => ({ ...prev, bags_donated: parseInt(e.target.value) }))}
+                    required
+                  >
+                    <option value={1}>1 Bag</option>
+                    <option value={2}>2 Bags</option>
+                    <option value={3}>3 Bags</option>
+                    <option value={4}>4 Bags</option>
+                    <option value={5}>5 Bags</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="donation_place">Donation Place (Optional)</Label>
+                  <Input
+                    id="donation_place"
+                    type="text"
+                    placeholder="Hospital, Blood Bank, etc."
+                    value={donationRecordForm.donation_place}
+                    onChange={(e) => setDonationRecordForm(prev => ({ ...prev, donation_place: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDonationRecordModal(false)}
+                  disabled={donationRecordSaving}
+                >
+                  Skip
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={donationRecordSaving}
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
+                >
+                  {donationRecordSaving ? (
+                    <div className="flex items-center space-x-2">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Adding...</span>
+                    </div>
+                  ) : (
+                    'Add Record'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

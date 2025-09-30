@@ -17,12 +17,16 @@ export async function createEmergencyAlert(
   // Convert coordinates to geohash
   const location_geohash = encodeGeohash(alertData.location_lat, alertData.location_lng, 5);
 
+  // Generate unique serial number
+  const serial_number = generateSerialNumber();
+
   // Set expiration time (24 hours from now)
   const expires_at = new Date();
   expires_at.setHours(expires_at.getHours() + 24);
 
   const emergencyAlert: EmergencyAlert = {
     user_id: userId,
+    serial_number,
     blood_type: alertData.blood_type,
     location_geohash,
     location_lat: alertData.location_lat,
@@ -105,7 +109,8 @@ export async function updateEmergencyAlertStatus(
   alertId: ObjectId,
   status: EmergencyAlert['status'],
   donorsNotified?: number,
-  donorsResponded?: number
+  donorsResponded?: number,
+  selectedDonorId?: ObjectId
 ): Promise<boolean> {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
@@ -122,6 +127,10 @@ export async function updateEmergencyAlertStatus(
 
   if (donorsResponded !== undefined) {
     updateData.donors_responded = donorsResponded;
+  }
+
+  if (selectedDonorId !== undefined) {
+    updateData.selected_donor_id = selectedDonorId;
   }
 
   const result = await collection.updateOne(
@@ -159,4 +168,19 @@ export async function expireOldEmergencyAlerts(): Promise<number> {
   );
 
   return result.modifiedCount;
+}
+
+// Generate unique serial number for emergency alerts
+function generateSerialNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `EM${timestamp}${random}`;
+}
+
+export async function getEmergencyAlertBySerialNumber(serialNumber: string): Promise<EmergencyAlert | null> {
+  const client = await clientPromise;
+  const db = client.db(DB_NAME);
+  const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
+
+  return await collection.findOne({ serial_number: serialNumber });
 }

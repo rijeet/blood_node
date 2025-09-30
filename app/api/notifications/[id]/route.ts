@@ -10,7 +10,7 @@ import { ObjectId } from 'mongodb';
 // PUT - Mark notification as read or delete
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication
@@ -41,7 +41,8 @@ export async function PUT(
       );
     }
 
-    const notificationId = new ObjectId(params.id);
+    const resolvedParams = await params;
+    const notificationId = new ObjectId(resolvedParams.id);
     const { action } = await request.json();
 
     if (action === 'mark_read') {
@@ -77,7 +78,7 @@ export async function PUT(
 // DELETE - Delete notification
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication
@@ -108,7 +109,8 @@ export async function DELETE(
       );
     }
 
-    const notificationId = new ObjectId(params.id);
+    const resolvedParams = await params;
+    const notificationId = new ObjectId(resolvedParams.id);
     const success = await deleteNotification(notificationId);
     
     if (success) {

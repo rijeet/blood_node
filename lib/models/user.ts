@@ -50,7 +50,7 @@ export interface UserAuthData {
 
 /**
  * Calculate if user is available for donation based on last donation date
- * Availability is true if (today - last_donation_date) >= 120 days
+ * Availability is true if (today - last_donation_date) >= 121 days
  */
 export function calculateAvailability(lastDonationDate?: Date): {
   isAvailable: boolean;
@@ -68,8 +68,8 @@ export function calculateAvailability(lastDonationDate?: Date): {
   const today = new Date();
   const timeDiff = today.getTime() - lastDonationDate.getTime();
   const daysSinceLastDonation = Math.floor(timeDiff / (1000 * 3600 * 24));
-  const isAvailable = daysSinceLastDonation >= 120;
-  const daysUntilAvailable = isAvailable ? 0 : 120 - daysSinceLastDonation;
+  const isAvailable = daysSinceLastDonation >= 121;
+  const daysUntilAvailable = isAvailable ? 0 : 121 - daysSinceLastDonation;
 
   return {
     isAvailable,

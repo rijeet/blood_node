@@ -7,6 +7,7 @@ import { getUsersWithAvailability } from '@/lib/db/users';
 import { createEmergencyNotificationsForUsers } from '@/lib/db/notifications';
 import { getGeohashesInRadius } from '@/lib/geo';
 import { sendEmail, sendBatchEmails } from '@/lib/email/service';
+import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
@@ -92,9 +93,9 @@ export async function POST(request: NextRequest) {
     
     // Find compatible donors in the area using geohash
     const donors = await getUsersWithAvailability({
-      blood_group: blood_type,
+      bloodGroup: blood_type,
       geohashes: geohashes,
-      public_profile: true
+      onlyAvailable: true
     });
 
     if (donors.length === 0) {
@@ -203,14 +204,14 @@ export async function POST(request: NextRequest) {
                   <p><strong>Alert Time:</strong> ${new Date().toLocaleString()}</p>
                 </div>
 
-                <h3>🩸 Your Blood Type: ${donor.blood_type}</h3>
+                <h3>🩸 Your Blood Type: ${donor.blood_group_public || 'Not specified'}</h3>
                 <p>You are a compatible donor for this emergency!</p>
 
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="https://bloodnode.app/emergency/respond?alert_id=${Date.now()}&donor_code=${donor.user_code}" class="button">
+                  <a href="https://bloodnode.app/emergency/respond/${emergencyAlert._id?.toString()}" class="button">
                     I Can Help - Respond Now
                   </a>
-                  <a href="https://bloodnode.app/emergency/decline?alert_id=${Date.now()}&donor_code=${donor.user_code}" class="button" style="background: #6b7280;">
+                  <a href="https://bloodnode.app/emergency/respond/${emergencyAlert._id?.toString()}" class="button" style="background: #6b7280;">
                     Cannot Help Right Now
                   </a>
                 </div>
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
     // Create notifications for all users in the area (not just compatible donors)
     const allUsersInArea = await getUsersWithAvailability({
       geohashes: geohashes,
-      public_profile: true
+      onlyAvailable: true
     });
 
     // Create notifications for users who might be interested in the emergency
@@ -291,6 +292,7 @@ export async function POST(request: NextRequest) {
       donors_notified: emailsSent,
       total_donors_found: donors.length,
       alert_id: emergencyAlert._id?.toString(),
+      serial_number: emergencyAlert.serial_number,
       alert_details: {
         blood_type,
         location: { lat, lng },

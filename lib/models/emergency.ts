@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 export interface EmergencyAlert {
   _id?: ObjectId;
   user_id: ObjectId; // Reference to the user who created the alert
+  serial_number: string; // Unique serial number for tracking
   blood_type: string; // Required blood type (A+, B-, etc.)
   location_geohash: string; // 5-character geohash for location
   location_lat: number; // Latitude for precise location
@@ -27,6 +28,7 @@ export interface EmergencyAlert {
   status: 'active' | 'fulfilled' | 'cancelled' | 'expired';
   donors_notified: number; // Number of donors who received the alert
   donors_responded: number; // Number of donors who responded
+  selected_donor_id?: ObjectId; // ID of the donor who was selected
   
   // Timestamps
   created_at: Date;
