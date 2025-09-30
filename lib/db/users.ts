@@ -44,7 +44,18 @@ export async function createUser(userData: UserCreateInput): Promise<User> {
  */
 export async function findUserByEmailHash(emailHash: string): Promise<User | null> {
   const collection = await getUsersCollection();
-  return collection.findOne({ email_hash: emailHash });
+  const user = await collection.findOne({ email_hash: emailHash });
+  
+  if (user) {
+    console.log('🔍 findUserByEmailHash - User found:');
+    console.log('  Keys:', Object.keys(user));
+    console.log('  password_hash:', user.password_hash);
+    console.log('  password_hash type:', typeof user.password_hash);
+  } else {
+    console.log('🔍 findUserByEmailHash - User not found');
+  }
+  
+  return user;
 }
 
 /**

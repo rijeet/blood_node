@@ -25,13 +25,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [profileDataLoaded, setProfileDataLoaded] = useState(false);
 
   // Function to fetch profile data when dashboard is loaded
   const fetchProfileData = async () => {
+    if (profileDataLoaded) {
+      return; // Prevent multiple calls
+    }
+    
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken || accessToken === 'undefined' || accessToken === 'null') {
       return;
     }
+
+    setProfileDataLoaded(true); // Mark as loading to prevent multiple calls
 
     try {
       const profileResponse = await fetch('/api/profile', {
@@ -67,6 +74,20 @@ export default function Home() {
     const userData = localStorage.getItem('user_data');
     const accessToken = localStorage.getItem('access_token');
     
+    // Check URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldLogin = urlParams.get('login') === 'true';
+    const returnUrl = urlParams.get('returnUrl');
+    
+    if (shouldLogin) {
+      setCurrentView('login');
+      if (returnUrl) {
+        // Store return URL for after login
+        localStorage.setItem('returnUrl', returnUrl);
+      }
+      return;
+    }
+    
     // Check for valid token (not 'undefined' or 'null' strings)
     if (userData && accessToken && accessToken !== 'undefined' && accessToken !== 'null') {
       // Only set dashboard view if we have a valid token
@@ -80,30 +101,17 @@ export default function Home() {
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user_data');
       }
-      // No valid token, show login page
-      setCurrentView('login');
-      
-      // Check URL parameters for login redirect
-      const urlParams = new URLSearchParams(window.location.search);
-      const shouldLogin = urlParams.get('login') === 'true';
-      const returnUrl = urlParams.get('returnUrl');
-      
-      if (shouldLogin) {
-        setCurrentView('login');
-        if (returnUrl) {
-          // Store return URL for after login
-          localStorage.setItem('returnUrl', returnUrl);
-        }
-      }
+      // No valid token, stay on landing page (don't auto-redirect to login)
+      setCurrentView('landing');
     }
   }, []);
 
   // Fetch profile data when dashboard view is rendered
   useEffect(() => {
-    if (currentView === 'dashboard' && currentUser) {
+    if (currentView === 'dashboard' && currentUser && !profileDataLoaded) {
       fetchProfileData();
     }
-  }, [currentView, currentUser]);
+  }, [currentView]);
 
   const handleSignupSuccess = (userData: any) => {
     setSuccess('Account created successfully! Please verify your email to complete registration.');
@@ -153,6 +161,7 @@ export default function Home() {
     
     setCurrentUser(null);
     setCurrentView('landing');
+    setProfileDataLoaded(false); // Reset profile data loading state
     setSuccess('Logged out successfully');
   };
 

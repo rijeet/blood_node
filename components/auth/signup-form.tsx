@@ -52,6 +52,9 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
 
       // Hash email
       const emailHash = await hashEmailClientAsync(formData.email);
+      
+      // Hash password for server storage
+      const passwordHash = await crypto.hashPassword(formData.password);
 
       // Prepare signup data
       const signupData = {
@@ -60,6 +63,7 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
         encrypted_private_key: cryptoData.encryptedPrivateKey,
         master_salt: cryptoData.masterSalt,
         sss_server_share: cryptoData.sssShares[1], // Server gets share index 1
+        password_hash: passwordHash,
         user_code: cryptoData.userCode,
         name: formData.name || null,
         phone: formData.phone || null,

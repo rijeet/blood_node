@@ -18,6 +18,7 @@ export interface User {
   encrypted_private_key: string; // AES-GCM ciphertext of privateKeyJWK
   master_salt: string; // KDF salt used to derive KEK
   sss_server_share: string; // server SSS share
+  password_hash: string; // hashed password for authentication
   recovery_shares?: string[]; // recovery shares for account recovery
   recovery_token?: string; // temporary token for password reset
   recovery_token_expires?: Date; // expiry time for recovery token
@@ -34,6 +35,7 @@ export interface UserCreateInput {
   encrypted_private_key: string;
   master_salt: string;
   sss_server_share: string;
+  password_hash: string;
   user_code: string;
   location_geohash?: string;
   location_address?: string;

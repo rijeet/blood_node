@@ -17,10 +17,14 @@ const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_no
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔐 Login API called');
     const body = await request.json();
     const { email, password, remember_device = false } = body;
+    console.log('📧 Email:', email);
+    console.log('🔑 Password length:', password ? password.length : 'undefined');
 
     if (!email || !password) {
+      console.log('❌ Missing email or password');
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -29,27 +33,46 @@ export async function POST(request: NextRequest) {
 
     // Hash email to find user
     const emailHash = hashEmail(email);
+    console.log('🔍 Email hash:', emailHash);
     const user = await findUserByEmailHash(emailHash);
+    console.log('👤 User found:', user ? 'YES' : 'NO');
 
     if (!user) {
+      console.log('❌ User not found');
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
+    console.log('✅ Email verified:', user.email_verified);
     if (!user.email_verified) {
+      console.log('❌ Email not verified');
       return NextResponse.json(
         { error: 'Email not verified' },
         { status: 401 }
       );
     }
 
-    // Note: Blood Node uses client-side encryption where passwords are not stored on server
-    // The password is used client-side to derive encryption keys
-    // Server authentication relies on the client's ability to decrypt their private key
-    // For demo purposes, we'll allow login if user exists and email is verified
-    console.log('Login attempt for user:', user.user_code);
+    // Validate password
+    console.log('🔐 Validating password...');
+    const crypto = new (await import('@/lib/crypto/client')).BloodNodeCrypto();
+    const hashedPassword = await crypto.hashPassword(password);
+    console.log('🔑 Stored hash:', user.password_hash);
+    console.log('🔑 Computed hash:', hashedPassword);
+    console.log('🔑 Match:', user.password_hash === hashedPassword);
+    
+    if (user.password_hash !== hashedPassword) {
+      console.log('❌ Password validation failed');
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+    
+    console.log('✅ Password validation successful');
+    
+    console.log('Login successful for user:', user.user_code);
 
     // Generate device fingerprint
     const userAgent = request.headers.get('user-agent') || '';

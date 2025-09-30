@@ -9,6 +9,9 @@ export async function createDonationRecord(
   recordData: DonationRecordCreateInput
 ): Promise<DonationRecord> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<DonationRecord>(COLLECTION_NAME);
 
@@ -33,6 +36,9 @@ export async function createDonationRecord(
 
 export async function getDonationRecordsByUser(userId: ObjectId): Promise<DonationRecord[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<DonationRecord>(COLLECTION_NAME);
 
@@ -44,6 +50,9 @@ export async function getDonationRecordsByUser(userId: ObjectId): Promise<Donati
 
 export async function getDonationRecordCount(userId: ObjectId): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<DonationRecord>(COLLECTION_NAME);
 
@@ -52,6 +61,9 @@ export async function getDonationRecordCount(userId: ObjectId): Promise<number> 
 
 export async function getLastDonationDate(userId: ObjectId): Promise<Date | null> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<DonationRecord>(COLLECTION_NAME);
 
@@ -66,6 +78,9 @@ export async function getLastDonationDate(userId: ObjectId): Promise<Date | null
 
 export async function getDonationRecordsByEmergency(emergencyId: ObjectId): Promise<DonationRecord[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<DonationRecord>(COLLECTION_NAME);
 

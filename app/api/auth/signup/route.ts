@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
       encrypted_private_key,
       master_salt,
       sss_server_share,
+      password_hash,
       user_code: providedUserCode,
       location_geohash,
       location_address,
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     }: UserCreateInput & { email?: string } = body;
 
     // Validate required fields
-    if (!email_hash || !public_key || !encrypted_private_key || !master_salt || !sss_server_share) {
+    if (!email_hash || !public_key || !encrypted_private_key || !master_salt || !sss_server_share || !password_hash) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       encrypted_private_key,
       master_salt,
       sss_server_share,
+      password_hash,
       user_code: userCode,
       location_geohash: location_geohash || undefined,
       location_address: location_address || undefined,

@@ -88,10 +88,10 @@ export async function validateVerificationToken(
       query.email_hash = codeSearch.email_hash;
       query.token_type = expectedType;
       
-      // Search in verification_data.code or recovery_data.code
+      // Search in verification_code_data.code or recovery_code_data.code
       query.$or = [
-        { 'verification_data.code': codeSearch.code },
-        { 'recovery_data.code': codeSearch.code }
+        { 'verification_code_data.code': codeSearch.code },
+        { 'recovery_code_data.code': codeSearch.code }
       ];
     } else {
       return { valid: false, error: 'Token or code search parameters required' };

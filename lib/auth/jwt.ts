@@ -53,20 +53,18 @@ export function generateAccessToken(payload: {
  */
 export function verifyAccessToken(token: string): JWTPayload | null {
   try {
-    console.log('Verifying token:', token.substring(0, 20) + '...');
-    console.log('Token length:', token.length);
-    console.log('Token format check:', token.split('.').length === 3 ? 'Valid JWT format' : 'Invalid JWT format');
+    // Debug logging removed to prevent console spam
     
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'blood-node',
       audience: 'blood-node-app',
     }) as JWTPayload;
     
-    console.log('Token verified successfully');
+    // Debug logging removed to prevent console spam
     return decoded;
   } catch (error) {
     console.error('JWT verification failed:', error);
-    console.error('Token that failed:', token.substring(0, 50) + '...');
+    // Debug logging removed to prevent console spam
     return null;
   }
 }

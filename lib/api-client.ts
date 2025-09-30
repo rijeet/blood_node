@@ -38,7 +38,7 @@ class ApiClient {
 
   private async getValidToken(): Promise<string | null> {
     const token = localStorage.getItem('access_token');
-    console.log('API Client - localStorage token:', token ? token.substring(0, 20) + '...' : 'null');
+    // Debug logging removed to prevent console spam
     
     if (!token || token === 'undefined' || token === 'null') {
       console.log('API Client - No valid token in localStorage');
@@ -55,29 +55,26 @@ class ApiClient {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const now = Math.floor(Date.now() / 1000);
       
-      console.log('API Client - Token payload:', payload);
-      console.log('API Client - Token expires at:', new Date(payload.exp * 1000));
-      console.log('API Client - Current time:', new Date(now * 1000));
+      // Debug logging removed to prevent console spam
       
       if (payload.exp && payload.exp > now) {
-        console.log('API Client - Token is still valid');
+        // Debug logging removed to prevent console spam
         return token; // Token is still valid
       } else {
-        console.log('API Client - Token is expired');
+        // Debug logging removed to prevent console spam
       }
     } catch (error) {
-      console.log('API Client - Token is malformed:', error);
+      // Debug logging removed to prevent console spam
       // Token is malformed, try to refresh
     }
 
     // Token is expired or invalid, try to refresh
-    console.log('API Client - Attempting token refresh');
+    // Debug logging removed to prevent console spam
     const refreshedToken = await this.refreshToken();
-    console.log('API Client - Refresh result:', refreshedToken ? refreshedToken.substring(0, 20) + '...' : 'null');
     
     // Ensure we never return undefined as a string
     if (refreshedToken === undefined || refreshedToken === null) {
-      console.log('API Client - Refresh returned null/undefined, returning null');
+      // Debug logging removed to prevent console spam
       return null;
     }
     
@@ -89,9 +86,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const token = await this.getValidToken();
-    console.log('API Client - getValidToken returned:', token);
-    console.log('API Client - token type:', typeof token);
-    console.log('API Client - token length:', token?.length);
+    // Debug logging removed to prevent console spam
     
     if (!token) {
       console.log('API Client - No valid token, redirecting to login');
@@ -100,7 +95,7 @@ class ApiClient {
       throw new Error('Authentication required');
     }
 
-    console.log('API Client - Using token:', token.substring(0, 20) + '...');
+    // Debug logging removed to prevent console spam
     
     // Ensure token is a valid string before using it
     if (typeof token !== 'string' || token === 'undefined' || token === 'null') {

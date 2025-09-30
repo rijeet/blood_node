@@ -116,7 +116,11 @@ export async function POST(request: NextRequest) {
     `;
 
     try {
-      await sendEmail(email, emailSubject, emailHtml);
+      await sendEmail({
+        to: email,
+        subject: emailSubject,
+        html: emailHtml
+      });
       
       return NextResponse.json({
         success: true,

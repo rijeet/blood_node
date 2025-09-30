@@ -15,18 +15,18 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    console.log('Extracted token from Authorization header:', token.substring(0, 20) + '...');
+    // Debug logging removed to prevent console spam
     return token;
   }
 
   // Fallback to cookie (though access tokens should typically be in headers)
   const tokenCookie = request.cookies.get('access_token')?.value;
   if (tokenCookie) {
-    console.log('Extracted token from cookie:', tokenCookie.substring(0, 20) + '...');
+    // Debug logging removed to prevent console spam
     return tokenCookie;
   }
 
-  console.log('No token found in request');
+  // Debug logging removed to prevent console spam
   return null;
 }
 

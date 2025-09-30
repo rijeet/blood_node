@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
       user_id: user._id,
       email_hash: user.email_hash,
       token_type: 'password_recovery_code',
-      verification_data: {
-        code: verificationCode,
-        purpose: purpose || 'password_reset'
+      verification_code_data: {
+        user_id: user._id!,
+        code: verificationCode
       },
       expiresInHours: 0.25 // 15 minutes expiry
     });
@@ -86,7 +86,11 @@ export async function POST(request: NextRequest) {
     `;
 
     try {
-      await sendEmail(email, emailSubject, emailHtml);
+      await sendEmail({
+        to: email,
+        subject: emailSubject,
+        html: emailHtml
+      });
       
       return NextResponse.json({
         success: true,

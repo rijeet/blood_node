@@ -76,12 +76,12 @@ export default function EmergencyRespondPage() {
 
       const result = await response.json();
       if (result.success) {
-        alert('Response recorded successfully!');
+        window.alert('Response recorded successfully!');
         // Refresh the alert to show updated status
         fetchEmergencyAlert();
       }
     } catch (err) {
-      alert('Failed to respond to emergency. Please try again.');
+      window.alert('Failed to respond to emergency. Please try again.');
     } finally {
       setResponding(false);
     }
