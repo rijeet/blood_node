@@ -20,7 +20,8 @@ export interface EmergencyAlert {
   // Donation details
   donation_place?: string; // Hospital or blood bank name
   donation_date?: string; // When donation is needed
-  donation_time?: string; // What time donation is needed
+  donation_time_start?: string; // Start time for donation window
+  donation_time_end?: string; // End time for donation window
   contact_info?: string; // Contact phone/email
   reference?: string; // Doctor/case reference
   
@@ -48,7 +49,8 @@ export interface EmergencyAlertCreateInput {
   hemoglobin_level?: string;
   donation_place?: string;
   donation_date?: string;
-  donation_time?: string;
+  donation_time_start?: string;
+  donation_time_end?: string;
   contact_info?: string;
   reference?: string;
 }

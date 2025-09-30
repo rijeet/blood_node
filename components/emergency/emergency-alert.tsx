@@ -40,7 +40,6 @@ const URGENCY_LEVELS = [
 export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) {
   const [bloodType, setBloodType] = useState<string>('');
   const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
-  const [radius, setRadius] = useState(25);
   const [urgencyLevel, setUrgencyLevel] = useState('high');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +52,8 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
   const [hemoglobinLevel, setHemoglobinLevel] = useState<string>('');
   const [donationPlace, setDonationPlace] = useState<string>('');
   const [donationDate, setDonationDate] = useState<string>('');
-  const [donationTime, setDonationTime] = useState<string>('');
+  const [donationTimeStart, setDonationTimeStart] = useState<string>('');
+  const [donationTimeEnd, setDonationTimeEnd] = useState<string>('');
   const [contactInfo, setContactInfo] = useState<string>('');
   const [reference, setReference] = useState<string>('');
   const [patientCondition, setPatientCondition] = useState<string>('');
@@ -156,14 +156,14 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           blood_type: bloodType,
           lat: location.lat,
           lng: location.lng,
-          radius_km: radius,
           urgency_level: urgencyLevel,
           // New emergency fields
           required_bags: parseInt(requiredBags),
           hemoglobin_level: hemoglobinLevel || undefined,
           donation_place: donationPlace || undefined,
           donation_date: donationDate || undefined,
-          donation_time: donationTime || undefined,
+          donation_time_start: donationTimeStart || undefined,
+          donation_time_end: donationTimeEnd || undefined,
           contact_info: contactInfo || undefined,
           reference: reference || undefined,
           patient_condition: patientCondition || undefined
@@ -182,7 +182,8 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
         setHemoglobinLevel('');
         setDonationPlace('');
         setDonationDate('');
-        setDonationTime('');
+        setDonationTimeStart('');
+        setDonationTimeEnd('');
         setContactInfo('');
         setReference('');
         setPatientCondition('');
@@ -351,18 +352,37 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
               />
             </div>
 
-            {/* Donation Time */}
+            {/* Donation Time Range */}
             <div className="space-y-3">
               <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center space-x-2">
                 <span className="text-blue-500">⏰</span>
-                <span>Donation Time</span>
+                <span>Donation Time Range</span>
               </Label>
-              <Input
-                type="time"
-                value={donationTime}
-                onChange={(e) => setDonationTime(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">From</Label>
+                  <Input
+                    type="time"
+                    value={donationTimeStart}
+                    onChange={(e) => setDonationTimeStart(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    placeholder="Start time"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">To</Label>
+                  <Input
+                    type="time"
+                    value={donationTimeEnd}
+                    onChange={(e) => setDonationTimeEnd(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    placeholder="End time"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                e.g., 5:00 PM to 6:00 PM
+              </p>
             </div>
 
             {/* Contact Info */}
@@ -514,22 +534,6 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           </div>
         </div>
 
-        {/* Search Radius */}
-        <div className="space-y-2">
-          <Label htmlFor="radius">Alert Radius (km)</Label>
-          <Input
-            id="radius"
-            type="number"
-            min="1"
-            max="100"
-            value={radius}
-            onChange={(e) => setRadius(Number(e.target.value))}
-            className="w-32"
-          />
-          <p className="text-xs text-gray-500">
-            Larger radius = more donors, but may include those further away
-          </p>
-        </div>
 
 
         {/* Emergency Notice */}

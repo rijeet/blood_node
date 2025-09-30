@@ -16,7 +16,8 @@ interface EmergencyAlert {
   hemoglobin_level?: string;
   donation_place?: string;
   donation_date?: string;
-  donation_time?: string;
+  donation_time_start?: string;
+  donation_time_end?: string;
   contact_info?: string;
   reference?: string;
   status: 'active' | 'fulfilled' | 'cancelled' | 'expired';
@@ -233,12 +234,12 @@ export default function EmergencyRespondPage() {
                 <p className="text-gray-900">{alert.donation_date}</p>
               </div>
             )}
-            {alert.donation_time && (
+            {alert.donation_time_start && alert.donation_time_end && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   ⏰ Donation Time
                 </label>
-                <p className="text-gray-900">{alert.donation_time}</p>
+                <p className="text-gray-900">{alert.donation_time_start} to {alert.donation_time_end}</p>
               </div>
             )}
             {alert.contact_info && (

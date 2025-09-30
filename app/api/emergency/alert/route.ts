@@ -48,14 +48,15 @@ export async function POST(request: NextRequest) {
       blood_type, 
       lat, 
       lng, 
-      radius_km = 25,
+      radius_km = 20, // Fixed 20km radius
       urgency_level = 'high', // low, medium, high, critical
       // New emergency fields
       required_bags,
       hemoglobin_level,
       donation_place,
       donation_date,
-      donation_time,
+      donation_time_start,
+      donation_time_end,
       contact_info,
       reference,
       patient_condition,
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
         hemoglobin_level,
         donation_place,
         donation_date,
-        donation_time,
+        donation_time_start,
+        donation_time_end,
         contact_info,
         reference
       }
@@ -191,7 +193,7 @@ export async function POST(request: NextRequest) {
                   ${hemoglobin_level ? `<p><strong>Hemoglobin Level:</strong> ${hemoglobin_level}</p>` : ''}
                   ${donation_place ? `<p><strong>Donation Place:</strong> ${donation_place}</p>` : ''}
                   ${donation_date ? `<p><strong>Donation Date:</strong> ${donation_date}</p>` : ''}
-                  ${donation_time ? `<p><strong>Donation Time:</strong> ${donation_time}</p>` : ''}
+                  ${donation_time_start && donation_time_end ? `<p><strong>Donation Time:</strong> ${donation_time_start} to ${donation_time_end}</p>` : ''}
                   ${contact_info ? `<p><strong>Contact:</strong> ${contact_info}</p>` : ''}
                   ${reference ? `<p><strong>Reference:</strong> ${reference}</p>` : ''}
                 </div>
@@ -200,7 +202,7 @@ export async function POST(request: NextRequest) {
                 <div class="info-box">
                   ${location_address ? `<p><strong>Address:</strong> ${location_address}</p>` : ''}
                   <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-                  <p><strong>Search Radius:</strong> ${radius_km}km</p>
+                  <p><strong>Search Radius:</strong> 20km</p>
                   <p><strong>Alert Time:</strong> ${new Date().toLocaleString()}</p>
                 </div>
 
@@ -297,7 +299,7 @@ export async function POST(request: NextRequest) {
         blood_type,
         location: { lat, lng },
         location_address,
-        radius_km,
+        radius_km: 20,
         urgency_level,
         required_bags,
         patient_condition

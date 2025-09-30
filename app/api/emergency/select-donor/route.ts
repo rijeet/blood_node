@@ -108,7 +108,9 @@ export async function POST(request: NextRequest) {
     // Send confirmation email to selected donor
     try {
       const donationDate = alert.donation_date || new Date().toLocaleDateString();
-      const donationTime = alert.donation_time || 'To be confirmed';
+      const donationTime = alert.donation_time_start && alert.donation_time_end 
+        ? `${alert.donation_time_start} to ${alert.donation_time_end}` 
+        : 'To be confirmed';
       
       const emailHtml = generateDonationConfirmationEmail({
         donorName: donor.name || `Donor ${donor.user_code}`,

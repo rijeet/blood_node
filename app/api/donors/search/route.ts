@@ -3,7 +3,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { getUsersWithAvailability } from '@/lib/db/users';
+import { getDonationRecordCount } from '@/lib/db/donation-records';
 import { getGeohashesInRadius, canDonateTo } from '@/lib/geo';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,15 +48,21 @@ export async function GET(request: NextRequest) {
       donor.blood_group_public && canDonateTo(donor.blood_group_public as any, bloodGroup as any)
     );
 
-    // Format response
-    const formattedDonors = compatibleDonors.map(donor => ({
-      user_code: donor.user_code,
-      name: donor.name,
-      blood_group: donor.blood_group_public,
-      location_address: donor.location_address,
-      last_donation_date: donor.last_donation_date,
-      availability: donor.availability,
-      distance_km: null // Would need to calculate based on exact coordinates
+    // Format response with donation counts
+    const formattedDonors = await Promise.all(compatibleDonors.map(async (donor) => {
+      const donationCount = await getDonationRecordCount(new ObjectId(donor._id));
+      console.log(`Donor ${donor.user_code}: donation count = ${donationCount}`); // Debug log
+      
+      return {
+        user_code: donor.user_code,
+        name: donor.name,
+        blood_group: donor.blood_group_public,
+        location_address: donor.location_address,
+        last_donation_date: donor.last_donation_date,
+        availability: donor.availability,
+        donation_count: donationCount,
+        distance_km: null // Would need to calculate based on exact coordinates
+      };
     }));
 
     return NextResponse.json({

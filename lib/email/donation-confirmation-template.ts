@@ -125,7 +125,7 @@ export function generateDonationConfirmationEmail(data: DonationConfirmationData
                   <p><strong>Address:</strong> ${emergencyAlert.location_address}</p>
                 ` : ''}
                 <p><strong>Coordinates:</strong> ${emergencyAlert.location_lat.toFixed(6)}, ${emergencyAlert.location_lng.toFixed(6)}</p>
-                <p><strong>Search Radius:</strong> ${emergencyAlert.radius_km}km</p>
+                <p><strong>Search Radius:</strong> 20km</p>
                 <p><strong>Alert Created:</strong> ${new Date(emergencyAlert.created_at).toLocaleString()}</p>
               </div>
             </div>
