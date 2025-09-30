@@ -1,14 +1,11 @@
-// Email verification code API route
-
 import { NextRequest, NextResponse } from 'next/server';
-import { validateVerificationToken, markTokenAsUsed } from '@/lib/db/verification';
-import { verifyUserEmail } from '@/lib/db/users';
-import { hashEmail } from '@/lib/auth/jwt';
+import { findUserByEmail } from '@/lib/db/users';
+import { validateVerificationToken } from '@/lib/db/verification';
+import { BloodNodeCrypto } from '@/lib/crypto/client';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, code } = body;
+    const { email, code, purpose } = await request.json();
 
     if (!email || !code) {
       return NextResponse.json(
@@ -17,55 +14,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash email for lookup
-    const emailHash = hashEmail(email);
+    // Find user by email
+    const user = await findUserByEmail(email);
 
-    // Validate the code
-    const validation = await validateVerificationToken(
-      null, 
-      'email_verification_code',
-      { email_hash: emailHash, code }
+    if (!user) {
+      return NextResponse.json(
+        { error: 'No account found with this email address' },
+        { status: 404 }
+      );
+    }
+
+    // Validate the verification code
+    const validationResult = await validateVerificationToken(
+      null, // no token string
+      'password_recovery_code',
+      { 
+        email_hash: user.email_hash, 
+        code: code 
+      }
     );
-    
-    if (!validation.valid || !validation.token) {
+
+    if (!validationResult.valid) {
       return NextResponse.json(
-        { error: validation.error || 'Invalid or expired verification code' },
+        { error: validationResult.error || 'Invalid verification code' },
         { status: 400 }
       );
     }
 
-    // Check if token is already used
-    if (validation.token.used) {
-      return NextResponse.json(
-        { error: 'Verification code has already been used' },
-        { status: 400 }
-      );
-    }
-
-    // Mark token as used
-    const marked = await markTokenAsUsed(validation.token.token);
-    if (!marked) {
-      return NextResponse.json(
-        { error: 'Failed to process verification' },
-        { status: 500 }
-      );
-    }
-
-    // Verify user email
-    if (validation.token.user_id) {
-      await verifyUserEmail(validation.token.user_id.toString());
-    }
+    // Generate a reset token for password reset
+    const resetToken = await createResetToken(user._id);
 
     return NextResponse.json({
       success: true,
-      message: 'Email verified successfully'
+      message: 'Verification code verified successfully',
+      reset_token: resetToken
     });
 
   } catch (error) {
-    console.error('Email verification code error:', error);
+    console.error('Verify code error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to verify code' },
       { status: 500 }
     );
   }
+}
+
+async function createResetToken(userId: any) {
+  // Generate a secure reset token
+  const crypto = new BloodNodeCrypto();
+  const token = crypto.generateSecureToken(32);
+  
+  // Store the reset token in the database with expiry
+  const { getUsersCollection } = await import('@/lib/db/users');
+  const usersCollection = await getUsersCollection();
+  await usersCollection.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        reset_token: token,
+        reset_token_expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        updated_at: new Date()
+      }
+    }
+  );
+
+  return token;
 }

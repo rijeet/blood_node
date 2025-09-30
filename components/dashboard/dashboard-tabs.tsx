@@ -251,6 +251,7 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
             <ProfileForm
               onSuccess={onSuccess || (() => {})}
               onError={onError || (() => {})}
+              loadOnMount={true} // Only load profile data when profile tab is active
             />
           </div>
         );

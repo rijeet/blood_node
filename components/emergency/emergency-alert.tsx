@@ -16,6 +16,7 @@ import {
   Heart,
   Navigation
 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 import { LocationPicker } from '@/components/location/location-picker';
 
 interface EmergencyAlertProps {
@@ -146,13 +147,7 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
     setSuccess(null);
 
     try {
-      const response = await fetch('/api/emergency/alert', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: JSON.stringify({
+      const data = await apiClient.post('/api/emergency/alert', {
           blood_type: bloodType,
           lat: location.lat,
           lng: location.lng,
@@ -167,10 +162,7 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
           contact_info: contactInfo || undefined,
           reference: reference || undefined,
           patient_condition: patientCondition || undefined
-        })
-      });
-
-      const data = await response.json();
+        });
 
       if (data.success) {
         setSuccess(`Emergency alert sent successfully! ${data.donors_notified} donors notified.`);

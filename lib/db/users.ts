@@ -11,7 +11,7 @@ const COLLECTION_NAME = 'users';
 /**
  * Get database collection
  */
-async function getUsersCollection() {
+export async function getUsersCollection() {
   const client = await clientPromise;
   if (!client) {
     throw new Error('Database connection failed');

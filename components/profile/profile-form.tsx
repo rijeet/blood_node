@@ -34,9 +34,10 @@ interface UserProfile {
 interface ProfileFormProps {
   onSuccess: (message: string) => void;
   onError: (error: string) => void;
+  loadOnMount?: boolean; // New prop to control when to load profile data
 }
 
-export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
+export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileFormProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,10 +61,14 @@ export function ProfileForm({ onSuccess, onError }: ProfileFormProps) {
   const [donationRecordSaving, setDonationRecordSaving] = useState(false);
   const previousDonationDate = useRef<string>('');
 
-  // Load profile data
+  // Load profile data only if loadOnMount is true
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (loadOnMount) {
+      loadProfile();
+    } else {
+      setLoading(false);
+    }
+  }, [loadOnMount]);
 
   const loadProfile = async () => {
     try {

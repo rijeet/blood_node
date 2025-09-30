@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { BloodNodeCrypto } from '@/lib/crypto/client';
+import { RecoveryModal } from './recovery-modal';
 
 interface LoginFormProps {
   onSuccess: (data: any) => void;
@@ -16,6 +17,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
     rememberDevice: false
   });
   const [loading, setLoading] = useState(false);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,12 +117,9 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
         <button 
           type="button"
           className="text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
-          onClick={() => {
-            // TODO: Implement recovery flow
-            onError('Account recovery not yet implemented');
-          }}
+          onClick={() => setShowRecoveryModal(true)}
         >
-          Forgot your password? Use recovery shares
+          Forgot your password? Reset via email
         </button>
       </div>
 
@@ -131,6 +130,16 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
           your actual password on our servers.
         </p>
       </div>
+
+      <RecoveryModal
+        isOpen={showRecoveryModal}
+        onClose={() => setShowRecoveryModal(false)}
+        onSuccess={(message) => {
+          onSuccess({ message });
+          setShowRecoveryModal(false);
+        }}
+        onError={onError}
+      />
     </div>
   );
 }

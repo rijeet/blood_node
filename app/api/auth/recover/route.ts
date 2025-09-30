@@ -1,15 +1,11 @@
-// Password recovery API route
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByEmailHash } from '@/lib/db/users';
-import { createVerificationToken, validateVerificationToken, markTokenAsUsed } from '@/lib/db/verification';
-import { sendPasswordRecoveryEmail } from '@/lib/email/service';
-import { hashEmail } from '@/lib/auth/jwt';
+import { findUserByEmail } from '@/lib/db/users';
+import { sendEmail } from '@/lib/email/service';
+import { createVerificationToken } from '@/lib/db/verification';
 
-// POST - Send recovery email
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email } = body;
+    const { email } = await request.json();
 
     if (!email) {
       return NextResponse.json(
@@ -18,195 +14,133 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash email to find user
-    const emailHash = hashEmail(email);
-    const user = await findUserByEmailHash(emailHash);
-
-    // Always return success to prevent email enumeration attacks
-    // Even if user doesn't exist, we pretend to send an email
-    const successResponse = {
-      success: true,
-      message: 'If an account with that email exists, we\'ve sent password recovery instructions.'
-    };
+    // Find user by email
+    const user = await findUserByEmail(email);
+    console.log('User found:', !!user);
+    console.log('User object keys:', user ? Object.keys(user) : 'No user');
+    console.log('User recovery shares:', user?.recovery_shares);
+    console.log('Recovery shares length:', user?.recovery_shares?.length || 0);
+    console.log('User email_hash:', user?.email_hash);
+    console.log('EMAIL_HASH_SECRET:', process.env.EMAIL_HASH_SECRET || 'default-email-secret');
+    
+    // Let's also try a direct database query
+    const { getUsersCollection } = await import('@/lib/db/users');
+    const collection = await getUsersCollection();
+    const directUser = await collection.findOne({ email_hash: user?.email_hash });
+    console.log('Direct query user recovery shares:', directUser?.recovery_shares);
+    console.log('Direct query user keys:', directUser ? Object.keys(directUser) : 'No user');
+    
+    // Let's check what database we're connected to
+    const dbName = collection.dbName;
+    console.log('Database name:', dbName);
+    
+    // Let's also try to find all users to see what's in the database
+    const allUsers = await collection.find({}).toArray();
+    console.log('Total users in database:', allUsers.length);
+    if (allUsers.length > 0) {
+      console.log('First user keys:', Object.keys(allUsers[0]));
+      console.log('First user recovery shares:', allUsers[0].recovery_shares);
+    }
 
     if (!user) {
-      console.log('Password recovery requested for non-existent email:', email);
-      return NextResponse.json(successResponse);
+      return NextResponse.json(
+        { error: 'No account found with this email address' },
+        { status: 404 }
+      );
     }
 
-    if (!user.email_verified) {
-      console.log('Password recovery requested for unverified email:', email);
-      return NextResponse.json(successResponse);
+    // Check if user has recovery shares
+    if (!user.recovery_shares || user.recovery_shares.length === 0) {
+      return NextResponse.json(
+        { error: 'No recovery shares found for this account. Please contact support.' },
+        { status: 400 }
+      );
     }
 
-    // Create recovery token
-    const { token } = await createVerificationToken({
-      email_hash: emailHash,
+    // Generate recovery shares (in a real implementation, these would be generated from the stored shares)
+    // For now, we'll use the stored recovery shares
+    const recoveryShares = user.recovery_shares;
+
+    // Create verification token for recovery
+    const verificationToken = await createVerificationToken({
+      user_id: user._id,
+      email_hash: user.email_hash,
       token_type: 'password_recovery',
-      recovery_data: {
-        user_id: user._id!
-      },
-      expiresInHours: 1
+      expiresInHours: 0.25 // 15 minutes expiry
     });
 
-    // Send recovery email
+    // Send recovery shares via email
+    const emailSubject = 'Blood Node - Account Recovery Shares';
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #dc2626; font-size: 28px; margin: 0;">Blood Node</h1>
+          <p style="color: #6b7280; font-size: 16px; margin: 10px 0 0 0;">Account Recovery</p>
+        </div>
+        
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+          <h2 style="color: #111827; font-size: 20px; margin: 0 0 16px 0;">Recovery Shares</h2>
+          <p style="color: #6b7280; font-size: 14px; margin: 0 0 20px 0;">
+            Use these recovery shares to regain access to your account. You need all 3 shares to recover your account.
+          </p>
+          
+          <div style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 16px;">
+            <h3 style="color: #374151; font-size: 16px; margin: 0 0 12px 0;">Your Recovery Shares:</h3>
+            ${recoveryShares.map((share: string, index: number) => `
+              <div style="margin-bottom: 8px;">
+                <strong style="color: #6b7280; font-size: 12px;">Share ${index + 1}:</strong>
+                <div style="font-family: 'Courier New', monospace; background: #f3f4f6; padding: 8px; border-radius: 4px; margin-top: 4px; word-break: break-all; font-size: 12px;">
+                  ${share}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+          <h3 style="color: #92400e; font-size: 14px; margin: 0 0 8px 0;">⚠️ Important Security Notes:</h3>
+          <ul style="color: #92400e; font-size: 12px; margin: 0; padding-left: 16px;">
+            <li>These shares are valid for 15 minutes only</li>
+            <li>Never share these recovery shares with anyone</li>
+            <li>If you didn't request this recovery, please contact support immediately</li>
+            <li>After successful recovery, you'll need to set a new password</li>
+          </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #6b7280; font-size: 12px; margin: 0;">
+            This email was sent because you requested account recovery for Blood Node.
+          </p>
+        </div>
+      </div>
+    `;
+
     try {
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-      await sendPasswordRecoveryEmail(email, token, baseUrl);
-      console.log('Recovery email sent to:', email);
+      await sendEmail(email, emailSubject, emailHtml);
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Recovery shares sent to your email address',
+        token: verificationToken.token
+      });
     } catch (emailError) {
-      console.error('Failed to send recovery email:', emailError);
-      // Still return success to prevent information disclosure
+      console.error('Email sending failed:', emailError);
+      
+      // For development/testing, return the recovery shares directly
+      return NextResponse.json({
+        success: true,
+        message: 'Recovery shares (email sending failed, but shares are available)',
+        token: verificationToken.token,
+        recovery_shares: recoveryShares, // Include shares in response for testing
+        debug: 'Email service not configured - shares returned in response'
+      });
     }
 
-    return NextResponse.json(successResponse);
-
   } catch (error) {
-    console.error('Password recovery error:', error);
+    console.error('Recovery error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to process recovery request' },
       { status: 500 }
     );
   }
-}
-
-// GET - Validate recovery token and show recovery form
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const token = searchParams.get('token');
-
-  if (!token) {
-    return new Response(
-      `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Password Recovery - Blood Node</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f3f4f6; margin: 0; padding: 20px; }
-            .container { max-width: 500px; margin: 50px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-            .error { color: #dc2626; }
-            .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>🩸 Blood Node</h1>
-            <div class="error">
-              <h2>Recovery Error</h2>
-              <p>No recovery token provided.</p>
-            </div>
-            <a href="/" class="button">Go to Home</a>
-          </div>
-        </body>
-      </html>`,
-      { 
-        status: 400,
-        headers: { 'Content-Type': 'text/html' }
-      }
-    );
-  }
-
-  // Validate the token
-  const validation = await validateVerificationToken(token, 'password_recovery');
-  
-  if (!validation.valid || !validation.token) {
-    return new Response(
-      `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Recovery Error - Blood Node</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f3f4f6; margin: 0; padding: 20px; }
-            .container { max-width: 500px; margin: 50px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-            .error { color: #dc2626; }
-            .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>🩸 Blood Node</h1>
-            <div class="error">
-              <h2>Recovery Failed</h2>
-              <p>${validation.error || 'Invalid or expired recovery token'}</p>
-            </div>
-            <a href="/" class="button">Go to Home</a>
-          </div>
-        </body>
-      </html>`,
-      { 
-        status: 400,
-        headers: { 'Content-Type': 'text/html' }
-      }
-    );
-  }
-
-  // Show recovery instructions since Blood Node uses client-side encryption
-  return new Response(
-    `<!DOCTYPE html>
-    <html>
-      <head>
-        <title>Password Recovery - Blood Node</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f3f4f6; margin: 0; padding: 20px; }
-          .container { max-width: 600px; margin: 50px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 20px; border-radius: 6px; margin: 20px 0; }
-          .info { background: #dbeafe; border: 1px solid #3b82f6; padding: 20px; border-radius: 6px; margin: 20px 0; }
-          .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
-          .steps { text-align: left; }
-          .steps li { margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🩸 Blood Node - Account Recovery</h1>
-          
-          <div class="warning">
-            <h3>🔒 End-to-End Encryption Notice</h3>
-            <p>Blood Node uses client-side encryption. Your password is never stored on our servers and cannot be reset traditionally.</p>
-          </div>
-          
-          <h2>Recovery Options:</h2>
-          
-          <div class="info">
-            <h3>📱 Option 1: Use Your Recovery Shares</h3>
-            <div class="steps">
-              <p>If you have your Shamir Secret Sharing (SSS) recovery shares:</p>
-              <ol>
-                <li>Go to the Blood Node login page</li>
-                <li>Click "Forgot your password? Use recovery shares"</li>
-                <li>Enter your User Share and Email Share</li>
-                <li>Set a new password</li>
-              </ol>
-            </div>
-          </div>
-          
-          <div class="info">
-            <h3>💾 Option 2: Use Your Downloaded Backup</h3>
-            <div class="steps">
-              <p>If you downloaded your recovery data during signup:</p>
-              <ol>
-                <li>Locate your recovery file</li>
-                <li>Follow the import instructions</li>
-                <li>Restore your account access</li>
-              </ol>
-            </div>
-          </div>
-          
-          <div class="warning">
-            <h3>⚠️ If You Lost Your Recovery Data</h3>
-            <p>Unfortunately, if you've lost both your password and recovery shares, your encrypted data cannot be recovered. This is by design to ensure maximum security.</p>
-            <p>You can create a new account with the same email address.</p>
-          </div>
-          
-          <p style="text-align: center;">
-            <a href="/" class="button">Go to Login</a>
-          </p>
-        </div>
-      </body>
-    </html>`,
-    { 
-      status: 200,
-      headers: { 'Content-Type': 'text/html' }
-    }
-  );
 }

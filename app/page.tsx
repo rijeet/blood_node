@@ -26,35 +26,63 @@ export default function Home() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
+  // Function to fetch profile data when dashboard is loaded
+  const fetchProfileData = async () => {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken || accessToken === 'undefined' || accessToken === 'null') {
+      return;
+    }
+
+    try {
+      const profileResponse = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        setCurrentUser(profileData.user);
+      } else if (profileResponse.status === 401) {
+        // Token is invalid, clear it and redirect to login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
+        setCurrentUser(null);
+        setCurrentView('login');
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile data:', error);
+      // On error, clear tokens and redirect to login
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_data');
+      setCurrentUser(null);
+      setCurrentView('login');
+    }
+  };
+
   // Check for existing session on page load
   useEffect(() => {
     const userData = localStorage.getItem('user_data');
     const accessToken = localStorage.getItem('access_token');
     
-    if (userData && accessToken) {
+    // Check for valid token (not 'undefined' or 'null' strings)
+    if (userData && accessToken && accessToken !== 'undefined' && accessToken !== 'null') {
+      // Only set dashboard view if we have a valid token
+      // Don't fetch profile data immediately to prevent JWT errors
       setCurrentUser(JSON.parse(userData));
       setCurrentView('dashboard');
-      
-      // Fetch full profile data including location
-      const fetchProfileData = async () => {
-        try {
-          const profileResponse = await fetch('/api/profile', {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-          
-          if (profileResponse.ok) {
-            const profileData = await profileResponse.json();
-            setCurrentUser(profileData.user);
-          }
-        } catch (error) {
-          console.error('Failed to fetch profile data:', error);
-        }
-      };
-      
-      fetchProfileData();
     } else {
+      // Clean up invalid tokens if they exist
+      if (accessToken === 'undefined' || accessToken === 'null') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
+      }
+      // No valid token, show login page
+      setCurrentView('login');
+      
       // Check URL parameters for login redirect
       const urlParams = new URLSearchParams(window.location.search);
       const shouldLogin = urlParams.get('login') === 'true';
@@ -69,6 +97,13 @@ export default function Home() {
       }
     }
   }, []);
+
+  // Fetch profile data when dashboard view is rendered
+  useEffect(() => {
+    if (currentView === 'dashboard' && currentUser) {
+      fetchProfileData();
+    }
+  }, [currentView, currentUser]);
 
   const handleSignupSuccess = (userData: any) => {
     setSuccess('Account created successfully! Please verify your email to complete registration.');

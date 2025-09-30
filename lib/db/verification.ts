@@ -43,7 +43,9 @@ export async function createVerificationToken(
     created_at: new Date(),
   };
   
+  console.log('Inserting verification token:', verificationToken);
   const result = await collection.insertOne(verificationToken);
+  console.log('Verification token inserted with ID:', result.insertedId);
   return { token, tokenId: result.insertedId };
 }
 
@@ -53,6 +55,16 @@ export async function createVerificationToken(
 export async function findVerificationTokenByToken(token: string): Promise<VerificationToken | null> {
   const collection = await getVerificationCollection();
   return collection.findOne({ token });
+}
+
+/**
+ * Verify a verification token (alias for validateVerificationToken)
+ */
+export async function verifyVerificationToken(
+  token: string,
+  expectedType?: VerificationToken['token_type']
+): Promise<TokenValidationResult> {
+  return validateVerificationToken(token, expectedType);
 }
 
 /**

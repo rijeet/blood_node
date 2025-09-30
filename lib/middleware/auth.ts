@@ -14,15 +14,19 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
   // Try Authorization header first
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
+    const token = authHeader.substring(7);
+    console.log('Extracted token from Authorization header:', token.substring(0, 20) + '...');
+    return token;
   }
 
   // Fallback to cookie (though access tokens should typically be in headers)
   const tokenCookie = request.cookies.get('access_token')?.value;
   if (tokenCookie) {
+    console.log('Extracted token from cookie:', tokenCookie.substring(0, 20) + '...');
     return tokenCookie;
   }
 
+  console.log('No token found in request');
   return null;
 }
 

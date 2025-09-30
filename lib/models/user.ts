@@ -18,6 +18,11 @@ export interface User {
   encrypted_private_key: string; // AES-GCM ciphertext of privateKeyJWK
   master_salt: string; // KDF salt used to derive KEK
   sss_server_share: string; // server SSS share
+  recovery_shares?: string[]; // recovery shares for account recovery
+  recovery_token?: string; // temporary token for password reset
+  recovery_token_expires?: Date; // expiry time for recovery token
+  reset_token?: string; // temporary token for password reset via email
+  reset_token_expires?: Date; // expiry time for reset token
   recovery_email_sent: boolean;
   created_at: Date;
   updated_at: Date;

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/lib/api-client';
 
 interface DonationRecord {
   _id: string;
@@ -32,16 +33,8 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
 
   const fetchRecordCount = async () => {
     try {
-      const response = await fetch(`/api/profile/donation-records/count?user_id=${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setRecordCount(data.count);
-      }
+      const data = await apiClient.get(`/api/profile/donation-records/count?user_id=${userId}`);
+      setRecordCount(data.count);
     } catch (error) {
       console.error('Failed to fetch donation record count:', error);
     } finally {
@@ -51,16 +44,8 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
 
   const fetchRecords = async () => {
     try {
-      const response = await fetch(`/api/profile/donation-records?user_id=${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setRecords(data.records);
-      }
+      const data = await apiClient.get(`/api/profile/donation-records?user_id=${userId}`);
+      setRecords(data.records);
     } catch (error) {
       console.error('Failed to fetch donation records:', error);
     }
