@@ -3,24 +3,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { findUserById } from '@/lib/db/users';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 
 const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('🗑️ Delete account request received');
+    
     // Authenticate user
     const user = authenticateRequest(request);
     if (!user) {
+      console.log('❌ Authentication failed');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get request body
-    const body = await request.json();
+    console.log('✅ User authenticated:', user.sub);
+
+    // Get request body with error handling
+    let body;
+    try {
+      body = await request.json();
+      console.log('📝 Request body received:', { user_code: body?.user_code, confirmation_text: body?.confirmation_text });
+    } catch (error) {
+      console.error('❌ JSON parsing error:', error);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    
     const { user_code, confirmation_text } = body;
 
     // Validate required fields

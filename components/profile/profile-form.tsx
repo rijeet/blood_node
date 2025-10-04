@@ -192,10 +192,14 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
   // Handle account deletion
   const handleDeleteAccount = async (userCode: string, confirmationText: string) => {
     try {
-      await apiClient.delete('/api/profile/delete', {
+      console.log('🗑️ Attempting to delete account:', { userCode, confirmationText });
+      
+      const response = await apiClient.delete('/api/profile/delete', {
         user_code: userCode,
         confirmation_text: confirmationText
       });
+
+      console.log('✅ Account deletion successful:', response);
 
       // Clear all local storage
       localStorage.removeItem('access_token');
@@ -207,6 +211,7 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
       window.location.href = '/';
       
     } catch (error: any) {
+      console.error('❌ Account deletion failed:', error);
       throw new Error(error.message || 'Failed to delete account');
     }
   };
