@@ -11,6 +11,9 @@ export async function createEmergencyAlert(
   alertData: EmergencyAlertCreateInput
 ): Promise<EmergencyAlert> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -59,6 +62,9 @@ export async function createEmergencyAlert(
 
 export async function getEmergencyAlertsByUser(userId: ObjectId): Promise<EmergencyAlert[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -70,6 +76,9 @@ export async function getEmergencyAlertsByUser(userId: ObjectId): Promise<Emerge
 
 export async function getActiveEmergencyAlerts(): Promise<EmergencyAlert[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -87,6 +96,9 @@ export async function getEmergencyAlertsByLocation(
   bloodType?: string
 ): Promise<EmergencyAlert[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -114,6 +126,9 @@ export async function updateEmergencyAlertStatus(
   selectedDonorId?: ObjectId
 ): Promise<boolean> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -144,6 +159,9 @@ export async function updateEmergencyAlertStatus(
 
 export async function getEmergencyAlertById(alertId: ObjectId): Promise<EmergencyAlert | null> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -152,6 +170,9 @@ export async function getEmergencyAlertById(alertId: ObjectId): Promise<Emergenc
 
 export async function expireOldEmergencyAlerts(): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 
@@ -180,6 +201,9 @@ function generateSerialNumber(): string {
 
 export async function getEmergencyAlertBySerialNumber(serialNumber: string): Promise<EmergencyAlert | null> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<EmergencyAlert>(COLLECTION_NAME);
 

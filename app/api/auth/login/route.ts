@@ -1,4 +1,4 @@
-// Login API route
+// Login API route with security
 
 import { NextRequest, NextResponse } from 'next/server';
 import { findUserByEmailHash, getUserAuthData } from '@/lib/db/users';
@@ -12,6 +12,7 @@ import {
 } from '@/lib/auth/jwt';
 import { MongoClient } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
+import { securityMiddleware } from '@/lib/middleware/security';
 
 const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔐 Login API called');
     const body = await request.json();
-    const { email, password, remember_device = false } = body;
+    const { email, password, remember_device = false, captcha_token } = body;
     console.log('📧 Email:', email);
     console.log('🔑 Password length:', password ? password.length : 'undefined');
 
@@ -31,6 +32,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check IP blacklist
+    const ipBlacklistResponse = await securityMiddleware.checkIPBlacklist(request);
+    if (ipBlacklistResponse) {
+      console.log('🚫 IP address blacklisted');
+      return ipBlacklistResponse;
+    }
+
+    // Apply rate limiting
+    const rateLimitResponse = await securityMiddleware.applyRateLimit(request, 'LOGIN_ATTEMPTS');
+    if (rateLimitResponse) {
+      console.log('🚫 Rate limit exceeded');
+      return rateLimitResponse;
+    }
+
+    // Check login attempt limits
+    const loginLimitResponse = await securityMiddleware.checkLoginLimits(request, email);
+    if (loginLimitResponse) {
+      console.log('🚫 Login limits exceeded');
+      return loginLimitResponse;
+    }
+
+    // Check if CAPTCHA is required and verify it
+    if (securityMiddleware.isCaptchaRequired('login')) {
+      if (!captcha_token) {
+        console.log('🤖 CAPTCHA required');
+        return NextResponse.json(
+          { 
+            error: 'CAPTCHA required',
+            message: 'Please complete the CAPTCHA verification',
+            captcha_required: true,
+            captcha_config: securityMiddleware.getCaptchaConfig()
+          },
+          { status: 400 }
+        );
+      }
+
+      const captchaResponse = await securityMiddleware.verifyCaptcha(request, 'login');
+      if (captchaResponse) {
+        console.log('🤖 CAPTCHA verification failed');
+        return captchaResponse;
+      }
+    }
+
     // Hash email to find user
     const emailHash = hashEmail(email);
     console.log('🔍 Email hash:', emailHash);
@@ -39,6 +83,17 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       console.log('❌ User not found');
+      
+      // Record failed login attempt
+      await securityMiddleware.recordLoginAttempt(request, {
+        email,
+        success: false,
+        failure_reason: 'User not found'
+      });
+
+      // Check for auto-blacklist
+      await securityMiddleware.checkAutoBlacklist(request, email);
+      
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -48,6 +103,18 @@ export async function POST(request: NextRequest) {
     console.log('✅ Email verified:', user.email_verified);
     if (!user.email_verified) {
       console.log('❌ Email not verified');
+      
+      // Record failed login attempt
+      await securityMiddleware.recordLoginAttempt(request, {
+        user_id: user._id!.toString(),
+        email,
+        success: false,
+        failure_reason: 'Email not verified'
+      });
+
+      // Check for auto-blacklist
+      await securityMiddleware.checkAutoBlacklist(request, email);
+      
       return NextResponse.json(
         { error: 'Email not verified' },
         { status: 401 }
@@ -64,6 +131,18 @@ export async function POST(request: NextRequest) {
     
     if (user.password_hash !== hashedPassword) {
       console.log('❌ Password validation failed');
+      
+      // Record failed login attempt
+      await securityMiddleware.recordLoginAttempt(request, {
+        user_id: user._id!.toString(),
+        email,
+        success: false,
+        failure_reason: 'Invalid password'
+      });
+
+      // Check for auto-blacklist
+      await securityMiddleware.checkAutoBlacklist(request, email);
+      
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -71,6 +150,13 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('✅ Password validation successful');
+    
+    // Record successful login attempt
+    await securityMiddleware.recordLoginAttempt(request, {
+      user_id: user._id!.toString(),
+      email,
+      success: true
+    });
     
     console.log('Login successful for user:', user.user_code);
 

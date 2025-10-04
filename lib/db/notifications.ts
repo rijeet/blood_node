@@ -9,6 +9,9 @@ export async function createNotification(
   notificationData: NotificationCreateInput
 ): Promise<Notification> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -42,6 +45,9 @@ export async function getUserNotifications(
   includeRead: boolean = true
 ): Promise<Notification[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -66,6 +72,9 @@ export async function getUserNotifications(
 
 export async function getUnreadNotificationCount(userId: ObjectId): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -81,6 +90,9 @@ export async function getUnreadNotificationCount(userId: ObjectId): Promise<numb
 
 export async function markNotificationAsRead(notificationId: ObjectId): Promise<boolean> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -99,6 +111,9 @@ export async function markNotificationAsRead(notificationId: ObjectId): Promise<
 
 export async function markAllNotificationsAsRead(userId: ObjectId): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -120,6 +135,9 @@ export async function markAllNotificationsAsRead(userId: ObjectId): Promise<numb
 
 export async function deleteNotification(notificationId: ObjectId): Promise<boolean> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -133,6 +151,9 @@ export async function getEmergencyNotificationsByLocation(
   radiusKm: number = 50
 ): Promise<Notification[]> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -166,6 +187,9 @@ export async function createEmergencyNotificationsForUsers(
   targetUserIds: ObjectId[]
 ): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 
@@ -208,6 +232,9 @@ export async function createEmergencyNotificationsForUsers(
 
 export async function cleanupExpiredNotifications(): Promise<number> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const collection = db.collection<Notification>(COLLECTION_NAME);
 

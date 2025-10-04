@@ -19,7 +19,7 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
     phone: '',
     bloodGroup: '',
     location: '',
-    locationData: null as { address: string; lat: number; lng: number } | null,
+    locationData: null as { address: string; lat: number; lng: number; details?: any } | null,
     lastDonationDate: '',
     makePublic: false
   });
@@ -89,11 +89,9 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
         throw new Error(result.error || 'Signup failed');
       }
 
-      // Store user share offline (in real app, prompt user to download/save)
+      // Prepare user data for verification
       const userData = {
         userCode: cryptoData.userCode,
-        userShare: cryptoData.sssShares[0], // User gets share index 0
-        emailShare: cryptoData.sssShares[2], // Email share index 2
         verificationToken: result.verification_token,
         email: formData.email
       };
@@ -203,17 +201,48 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
           </div>
         </div>
 
-        <LocationMapPicker
-          onLocationSelect={(locationData) => {
-            setFormData(prev => ({ 
-              ...prev, 
-              location: locationData.address,
-              locationData: locationData
-            }));
-          }}
-          value={formData.location}
-          error={!formData.locationData && formData.location ? 'Please select a location from the map' : undefined}
-        />
+        <div>
+          <LocationMapPicker
+            onLocationSelect={(locationData) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                location: locationData.address,
+                locationData: locationData
+              }));
+            }}
+            value={formData.location}
+            error={!formData.locationData && formData.location ? 'Please select a location from the map' : undefined}
+          />
+          {formData.locationData && (
+            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded text-sm">
+              <p className="text-green-800 font-medium">
+                <strong>Selected Location:</strong> {formData.locationData.address}
+              </p>
+              <p className="text-green-600 text-xs mt-1">
+                Coordinates: {formData.locationData.lat.toFixed(6)}, {formData.locationData.lng.toFixed(6)}
+              </p>
+              {formData.locationData.details && (
+                <div className="mt-2 text-xs text-green-700">
+                  {formData.locationData.details.building && (
+                    <p><strong>Building:</strong> {formData.locationData.details.building}</p>
+                  )}
+                  {formData.locationData.details.road && (
+                    <p><strong>Road:</strong> {formData.locationData.details.road}</p>
+                  )}
+                  {formData.locationData.details.houseNumber && (
+                    <p><strong>House Number:</strong> {formData.locationData.details.houseNumber}</p>
+                  )}
+                  {formData.locationData.details.amenity && (
+                    <p><strong>Type:</strong> {formData.locationData.details.amenity}</p>
+                  )}
+                  {formData.locationData.details.shop && (
+                    <p><strong>Shop:</strong> {formData.locationData.details.shop}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center">
           <input
@@ -237,11 +266,13 @@ export function SignupForm({ onSuccess, onError }: SignupFormProps) {
         </Button>
       </form>
 
-      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <h3 className="font-medium text-yellow-800">Important:</h3>
-        <p className="text-sm text-yellow-700 mt-1">
-          After signup, you'll receive a recovery share. Please save it securely - 
-          it's needed to recover your account if you forget your password.
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+        <h3 className="font-medium text-blue-800">Important:</h3>
+        <p className="text-sm text-blue-700 mt-1">
+          After signup, you'll receive a verification email. Please check your email and click the verification link to complete your registration.
+        </p>
+        <p className="text-sm text-blue-700 mt-2">
+          ✅ <strong>Password Recovery:</strong> You can reset your password anytime using your email address.
         </p>
       </div>
     </div>

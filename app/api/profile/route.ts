@@ -2,8 +2,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/middleware/auth';
-import { updateUserProfile, findUserById } from '@/lib/db/users';
+import { updateUserProfile, findUserById, updateUserLocation } from '@/lib/db/users';
 import { calculateAvailability, getAvailabilityStatus } from '@/lib/models/user';
+import { encodeGeohash } from '@/lib/geo';
 
 // Get user profile
 export async function GET(request: NextRequest) {
@@ -73,6 +74,7 @@ export async function PUT(request: NextRequest) {
       name,
       phone,
       location_address,
+      location_geohash,
       blood_group_public,
       last_donation_date
     } = body;
@@ -89,6 +91,32 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Process location geohash if provided
+    let processedLocationGeohash = location_geohash;
+    if (location_geohash && typeof location_geohash === 'string' && location_geohash.includes(',')) {
+      try {
+        const [lat, lng] = location_geohash.split(',').map(coord => parseFloat(coord.trim()));
+        
+        // Validate coordinates
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          return NextResponse.json(
+            { error: 'Invalid coordinates provided' },
+            { status: 400 }
+          );
+        }
+        
+        // Convert to precision 7 geohash
+        processedLocationGeohash = encodeGeohash(lat, lng, 7);
+        console.log(`Converted coordinates ${lat}, ${lng} to geohash: ${processedLocationGeohash}`);
+      } catch (error) {
+        console.error('Error converting coordinates to geohash:', error);
+        return NextResponse.json(
+          { error: 'Invalid location format' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update profile
     await updateUserProfile(user.sub, {
       name,
@@ -97,6 +125,11 @@ export async function PUT(request: NextRequest) {
       blood_group_public,
       last_donation_date: donationDate
     });
+
+    // Update location geohash if provided
+    if (processedLocationGeohash) {
+      await updateUserLocation(user.sub, processedLocationGeohash);
+    }
 
     // Get updated user record
     const userRecord = await findUserById(user.sub);

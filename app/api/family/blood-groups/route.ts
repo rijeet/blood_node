@@ -47,6 +47,12 @@ export async function GET(request: NextRequest) {
           return null; // Skip if relative not yet registered
         }
 
+        // Skip if the relative_user_id is the current user themselves
+        // This prevents showing the user in their own family network
+        if (currentUser._id && relative.relative_user_id.toString() === currentUser._id.toString()) {
+          return null;
+        }
+
         const relativeUser = await findUserById(relative.relative_user_id.toString());
         if (!relativeUser) {
           return null;

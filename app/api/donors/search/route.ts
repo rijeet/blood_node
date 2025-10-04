@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get geohashes within radius
+    // Get geohashes within radius (using precision 5 for better radius matching)
     const geohashes = getGeohashesInRadius(lat, lng, radiusKm, 5);
 
     // Search for compatible donors

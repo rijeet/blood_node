@@ -5,6 +5,7 @@ import { createUser, userCodeExists, findUserByEmailHash } from '@/lib/db/users'
 import { UserCreateInput } from '@/lib/models/user';
 import { generateUserCode } from '@/lib/crypto';
 import { createVerificationToken } from '@/lib/db/verification';
+import { encodeGeohash } from '@/lib/geo';
 import { sendVerificationEmail } from '@/lib/email/service';
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Convert location coordinates to precision 7 geohash if provided
+    let processedLocationGeohash = location_geohash;
+    if (location_geohash && typeof location_geohash === 'string' && location_geohash.includes(',')) {
+      try {
+        const [lat, lng] = location_geohash.split(',').map(coord => parseFloat(coord.trim()));
+        
+        // Validate coordinates
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          return NextResponse.json(
+            { error: 'Invalid coordinates provided' },
+            { status: 400 }
+          );
+        }
+        
+        // Convert to precision 7 geohash
+        processedLocationGeohash = encodeGeohash(lat, lng, 7);
+        console.log(`Converted coordinates ${lat}, ${lng} to geohash: ${processedLocationGeohash}`);
+      } catch (error) {
+        console.error('Error converting coordinates to geohash:', error);
+        return NextResponse.json(
+          { error: 'Invalid location format' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create user
     const userData: UserCreateInput = {
       email_hash,
@@ -69,7 +96,7 @@ export async function POST(request: NextRequest) {
       sss_server_share,
       password_hash,
       user_code: userCode,
-      location_geohash: location_geohash || undefined,
+      location_geohash: processedLocationGeohash || undefined,
       location_address: location_address || undefined,
       blood_group_public: blood_group_public || undefined,
       name: name || undefined,

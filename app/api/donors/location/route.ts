@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const donorsCollection = client.db(DB_NAME).collection<BloodDonorLocation>('donor_locations');
     
     // Generate geohash
-    const geohash = encodeGeohash(lat, lng, 5); // 5-character precision for ~2.4km accuracy
+    const geohash = encodeGeohash(lat, lng, 7); // 7-character precision for ~150m accuracy
     
     // Prepare donor location data
     const donorLocation: Omit<BloodDonorLocation, 'user_id'> = {

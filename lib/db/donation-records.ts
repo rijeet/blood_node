@@ -92,6 +92,9 @@ export async function getDonationRecordsByEmergency(emergencyId: ObjectId): Prom
 
 export async function updateUserLastDonationDate(userId: ObjectId, donationDate: Date): Promise<boolean> {
   const client = await clientPromise;
+  if (!client) {
+    throw new Error('MongoDB client is not available');
+  }
   const db = client.db(DB_NAME);
   const usersCollection = db.collection('users');
 

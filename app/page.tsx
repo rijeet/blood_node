@@ -330,15 +330,11 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mt-6 p-4 bg-yellow-900 border border-yellow-700 rounded-md">
-              <h3 className="font-medium text-yellow-400">Important Recovery Information:</h3>
-              <div className="text-sm text-yellow-200 mt-2 space-y-2">
+            <div className="mt-6 p-4 bg-blue-900 border border-blue-700 rounded-md">
+              <h3 className="font-medium text-blue-400">Account Information:</h3>
+              <div className="text-sm text-blue-200 mt-2 space-y-2">
                 <p><strong>User Code:</strong> {userData?.userCode}</p>
-                <p><strong>Recovery Share:</strong> Save this securely offline</p>
-                <div className="bg-gray-800 p-2 rounded text-xs font-mono break-all">
-                  {userData?.userShare}
-                </div>
-                <p className="text-xs">This share is needed to recover your account if you forget your password.</p>
+                <p className="text-xs">Keep your User Code safe - you'll need it to identify your account.</p>
               </div>
             </div>
           </div>

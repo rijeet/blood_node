@@ -144,7 +144,7 @@ function processUsers(users) {
           // Convert coordinates to geohash if it's in "lat,lng" format
           if (typeof user.location_geohash === 'string' && user.location_geohash.includes(',')) {
             const [lat, lng] = user.location_geohash.split(',').map(coord => parseFloat(coord.trim()));
-            const geohash = encodeGeohash(lat, lng, 5); // 5-character precision geohash
+            const geohash = encodeGeohash(lat, lng, 7); // 7-character precision geohash
             console.log(`Converting ${user.location_geohash} -> ${geohash}`);
             return geohash;
           }

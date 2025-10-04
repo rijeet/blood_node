@@ -1,28 +1,20 @@
 {
-  "name": "nextjs-template-mongodb",
+  "name": "blood-node",
   "version": "0.1.0",
   "private": true,
-  "description": "A Next.js template for building applications with MongoDB, featuring TypeScript and shadcn/ui / Tailwind CSS integration",
+  "description": "Blood Node - Secure family blood network with end-to-end encryption",
   "author": {
-    "name": "Jesse Hall",
-    "url": "https://github.com/codeSTACKr"
-  },
-  "homepage": "https://github.com/mongodb-developer/nextjs-template-mongodb#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mongodb-developer/nextjs-template-mongodb.git"
-  },
-  "bugs": {
-    "url": "https://github.com/mongodb-developer/nextjs-template-mongodb/issues"
+    "name": "Blood Node Team"
   },
   "keywords": [
+    "blood-donation",
+    "family-network",
+    "encryption",
     "nextjs",
     "mongodb",
     "typescript",
     "tailwindcss",
-    "vercel",
-    "template",
-    "shadcn"
+    "healthcare"
   ],
   "scripts": {
     "dev": "next dev --turbopack",
@@ -31,7 +23,10 @@
     "lint": "next lint",
     "init-db": "node scripts/init-database.js",
     "db:init": "npm run init-db",
-    "db:status": "curl -X GET http://localhost:3000/api/admin/init-db"
+    "db:status": "curl -X GET http://localhost:3000/api/admin/init-db",
+    "cleanup-tokens": "node scripts/cleanup-tokens.js",
+    "cleanup:api": "curl -X POST http://localhost:3000/api/admin/cleanup-tokens",
+    "create-admin": "node scripts/create-admin-simple.js"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
@@ -71,6 +66,7 @@
     "eslint-config-next": "15.1.6",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

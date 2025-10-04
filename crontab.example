@@ -1,0 +1,20 @@
+# Blood Node - Token Cleanup Cron Jobs
+# Add these to your server's crontab for automatic token cleanup
+
+# Run token cleanup every hour
+0 * * * * cd /path/to/blood-node && npm run cleanup-tokens >> /var/log/blood-node-cleanup.log 2>&1
+
+# Run token cleanup every 30 minutes (more frequent)
+# */30 * * * * cd /path/to/blood-node && npm run cleanup-tokens >> /var/log/blood-node-cleanup.log 2>&1
+
+# Run token cleanup daily at 2 AM
+# 0 2 * * * cd /path/to/blood-node && npm run cleanup-tokens >> /var/log/blood-node-cleanup.log 2>&1
+
+# Run token cleanup weekly on Sunday at 3 AM
+# 0 3 * * 0 cd /path/to/blood-node && npm run cleanup-tokens >> /var/log/blood-node-cleanup.log 2>&1
+
+# To install this crontab:
+# 1. Copy this file to your server
+# 2. Edit the paths to match your deployment
+# 3. Run: crontab crontab.example
+# 4. Verify with: crontab -l

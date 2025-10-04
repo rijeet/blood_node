@@ -158,11 +158,65 @@ export async function cleanupExpiredTokens(): Promise<number> {
       ]
     });
     
-    console.log(`Cleaned up ${result.deletedCount} expired tokens`);
+    console.log(`Cleaned up ${result.deletedCount} expired verification tokens`);
     return result.deletedCount;
   } catch (error) {
-    console.error('Error cleaning up tokens:', error);
+    console.error('Error cleaning up verification tokens:', error);
     return 0;
+  }
+}
+
+/**
+ * Clean up expired refresh tokens (run periodically)
+ */
+export async function cleanupExpiredRefreshTokens(): Promise<number> {
+  const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
+  
+  const collection = client.db(process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node').collection('refresh_tokens');
+  
+  try {
+    const result = await collection.deleteMany({
+      $or: [
+        { expires_at: { $lt: new Date() } }, // Expired tokens
+        { revoked: true, created_at: { $lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } // Revoked tokens older than 7 days
+      ]
+    });
+    
+    console.log(`Cleaned up ${result.deletedCount} expired/revoked refresh tokens`);
+    return result.deletedCount;
+  } catch (error) {
+    console.error('Error cleaning up refresh tokens:', error);
+    return 0;
+  }
+}
+
+/**
+ * Clean up all expired tokens (verification + refresh tokens)
+ */
+export async function cleanupAllExpiredTokens(): Promise<{ verification: number; refresh: number; total: number }> {
+  try {
+    console.log('Starting comprehensive token cleanup...');
+    
+    const [verificationCount, refreshCount] = await Promise.all([
+      cleanupExpiredTokens(),
+      cleanupExpiredRefreshTokens()
+    ]);
+    
+    const total = verificationCount + refreshCount;
+    
+    console.log(`Token cleanup completed: ${verificationCount} verification tokens, ${refreshCount} refresh tokens, ${total} total`);
+    
+    return {
+      verification: verificationCount,
+      refresh: refreshCount,
+      total
+    };
+  } catch (error) {
+    console.error('Error in comprehensive token cleanup:', error);
+    return { verification: 0, refresh: 0, total: 0 };
   }
 }
 
@@ -232,34 +286,91 @@ export async function revokeUserTokens(
  * Get token statistics
  */
 export async function getTokenStatistics(): Promise<{
-  total: number;
-  active: number;
-  expired: number;
-  used: number;
-  byType: Record<string, number>;
+  verification: {
+    total: number;
+    active: number;
+    expired: number;
+    used: number;
+    byType: Record<string, number>;
+  };
+  refresh: {
+    total: number;
+    active: number;
+    expired: number;
+    revoked: number;
+  };
+  combined: {
+    total: number;
+    active: number;
+    expired: number;
+  };
 }> {
-  const collection = await getVerificationCollection();
+  const client = await clientPromise;
+  if (!client) {
+    throw new Error('Database connection failed');
+  }
+  
+  const verificationCollection = await getVerificationCollection();
+  const refreshCollection = client.db(process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node').collection('refresh_tokens');
   
   try {
-    const [total, active, expired, used, byType] = await Promise.all([
-      collection.countDocuments({}),
-      collection.countDocuments({ used: false, expires_at: { $gt: new Date() } }),
-      collection.countDocuments({ used: false, expires_at: { $lt: new Date() } }),
-      collection.countDocuments({ used: true }),
-      collection.aggregate([
+    // Get verification token statistics
+    const [verificationTotal, verificationActive, verificationExpired, verificationUsed, verificationByType] = await Promise.all([
+      verificationCollection.countDocuments({}),
+      verificationCollection.countDocuments({ used: false, expires_at: { $gt: new Date() } }),
+      verificationCollection.countDocuments({ used: false, expires_at: { $lt: new Date() } }),
+      verificationCollection.countDocuments({ used: true }),
+      verificationCollection.aggregate([
         { $group: { _id: '$token_type', count: { $sum: 1 } } }
       ]).toArray()
     ]);
     
-    const typeStats: Record<string, number> = {};
-    byType.forEach((item) => {
+    // Get refresh token statistics
+    const [refreshTotal, refreshActive, refreshExpired, refreshRevoked] = await Promise.all([
+      refreshCollection.countDocuments({}),
+      refreshCollection.countDocuments({ revoked: false, expires_at: { $gt: new Date() } }),
+      refreshCollection.countDocuments({ revoked: false, expires_at: { $lt: new Date() } }),
+      refreshCollection.countDocuments({ revoked: true })
+    ]);
+    
+    const verificationTypeStats: Record<string, number> = {};
+    verificationByType.forEach((item) => {
       const typedItem = item as { _id: string; count: number };
-      typeStats[typedItem._id] = typedItem.count;
+      verificationTypeStats[typedItem._id] = typedItem.count;
     });
     
-    return { total, active, expired, used, byType: typeStats };
+    const verificationStats = {
+      total: verificationTotal,
+      active: verificationActive,
+      expired: verificationExpired,
+      used: verificationUsed,
+      byType: verificationTypeStats
+    };
+    
+    const refreshStats = {
+      total: refreshTotal,
+      active: refreshActive,
+      expired: refreshExpired,
+      revoked: refreshRevoked
+    };
+    
+    const combinedStats = {
+      total: verificationTotal + refreshTotal,
+      active: verificationActive + refreshActive,
+      expired: verificationExpired + refreshExpired
+    };
+    
+    return {
+      verification: verificationStats,
+      refresh: refreshStats,
+      combined: combinedStats
+    };
   } catch (error) {
     console.error('Error getting token statistics:', error);
-    return { total: 0, active: 0, expired: 0, used: 0, byType: {} };
+    return {
+      verification: { total: 0, active: 0, expired: 0, used: 0, byType: {} },
+      refresh: { total: 0, active: 0, expired: 0, revoked: 0 },
+      combined: { total: 0, active: 0, expired: 0 }
+    };
   }
 }

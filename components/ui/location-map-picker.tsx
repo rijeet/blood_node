@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+
+// Import Leaflet CSS - Next.js will handle this properly
 import 'leaflet/dist/leaflet.css';
 
 // Dynamically import map components to avoid SSR issues
@@ -20,13 +22,130 @@ const Marker = dynamic(
   { ssr: false }
 );
 
-// Note: useMapEvents is a hook and cannot be dynamically imported
-// We'll handle map events differently
+// Note: useMap is a hook and cannot be dynamically imported
+// We'll handle map events using a different approach
+
+// Function to truncate address by removing last 2 comma-separated parts
+function truncateAddress(address: string): string {
+  if (!address || !address.includes(',')) {
+    return address;
+  }
+  
+  const parts = address.split(',').map(part => part.trim());
+  
+  // If we have 3 or more parts, remove the last 2
+  if (parts.length >= 3) {
+    return parts.slice(0, -2).join(', ');
+  }
+  
+  // If we have 2 parts, remove the last 1
+  if (parts.length === 2) {
+    return parts[0];
+  }
+  
+  // If we have only 1 part, return as is
+  return address;
+}
 
 interface LocationMapPickerProps {
-  onLocationSelect: (location: { address: string; lat: number; lng: number }) => void;
+  onLocationSelect: (location: { address: string; lat: number; lng: number; details?: any }) => void;
   value?: string;
   error?: string;
+}
+
+// Function to parse detailed address information from Nominatim response
+function parseDetailedAddress(data: any, lat: number, lng: number) {
+  const addr = data.address || {};
+  const extratags = data.extratags || {};
+  const namedetails = data.namedetails || {};
+  
+  // Extract specific building/road information
+  const building = addr.building || extratags.building || namedetails.building;
+  const road = addr.road || addr.pedestrian || addr.footway || addr.cycleway;
+  const houseNumber = addr.house_number;
+  const amenity = addr.amenity || extratags.amenity;
+  const shop = addr.shop || extratags.shop;
+  const tourism = addr.tourism || extratags.tourism;
+  const leisure = addr.leisure || extratags.leisure;
+  const office = addr.office || extratags.office;
+  const healthcare = addr.healthcare || extratags.healthcare;
+  
+  // Create detailed location information
+  const details = {
+    building,
+    road,
+    houseNumber,
+    amenity,
+    shop,
+    tourism,
+    leisure,
+    office,
+    healthcare,
+    type: data.type,
+    category: data.category,
+    placeType: data.addresstype,
+    raw: data
+  };
+  
+  // Build formatted address with priority for specific locations
+  let formattedAddress = '';
+  
+  if (building && houseNumber) {
+    formattedAddress = `${building} ${houseNumber}`;
+  } else if (building) {
+    formattedAddress = building;
+  } else if (amenity) {
+    formattedAddress = amenity;
+  } else if (shop) {
+    formattedAddress = shop;
+  } else if (tourism) {
+    formattedAddress = tourism;
+  } else if (leisure) {
+    formattedAddress = leisure;
+  } else if (office) {
+    formattedAddress = office;
+  } else if (healthcare) {
+    formattedAddress = healthcare;
+  } else if (road) {
+    formattedAddress = road;
+  }
+  
+  // Add road information if we have a building but no road in the main name
+  if (building && road && !formattedAddress.includes(road)) {
+    formattedAddress = `${formattedAddress}, ${road}`;
+  }
+  
+  // Add neighborhood/city information
+  const neighborhood = addr.neighbourhood || addr.suburb;
+  const city = addr.city || addr.town || addr.village;
+  const state = addr.state;
+  const country = addr.country;
+  
+  if (neighborhood && !formattedAddress.includes(neighborhood)) {
+    formattedAddress = `${formattedAddress}, ${neighborhood}`;
+  }
+  if (city && !formattedAddress.includes(city)) {
+    formattedAddress = `${formattedAddress}, ${city}`;
+  }
+  if (state && !formattedAddress.includes(state)) {
+    formattedAddress = `${formattedAddress}, ${state}`;
+  }
+  if (country && !formattedAddress.includes(country)) {
+    formattedAddress = `${formattedAddress}, ${country}`;
+  }
+  
+  // Fallback to display_name if we don't have a good formatted address
+  if (!formattedAddress || formattedAddress.length < 5) {
+    formattedAddress = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
+  
+  // Truncate address to show only specific portion (skip last 2 comma-separated parts)
+  const truncatedAddress = truncateAddress(formattedAddress);
+  
+  return {
+    formatted: truncatedAddress,
+    details
+  };
 }
 
 interface LocationMarkerProps {
@@ -41,14 +160,14 @@ function LocationMarker({ position, onLocationSelect }: LocationMarkerProps) {
   // Custom marker icon
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const L = require('leaflet');
-      
-      // Fix for default markers in react-leaflet
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      import('leaflet').then((L) => {
+        // Fix for default markers in react-leaflet
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        });
       });
     }
   }, []);
@@ -61,16 +180,25 @@ function LocationMarker({ position, onLocationSelect }: LocationMarkerProps) {
   return markerPosition === null ? null : <Marker position={markerPosition} />;
 }
 
-// Note: Map click functionality temporarily disabled due to TypeScript compilation issues
-// Users can still search for locations using the search input
+// Component to handle map click events
+function MapClickHandler({ onLocationSelect, onReverseGeocodingChange }: { 
+  onLocationSelect: (location: { address: string; lat: number; lng: number }) => void;
+  onReverseGeocodingChange: (isLoading: boolean) => void;
+}) {
+  // We'll handle map clicks using a different approach
+  // by adding event listeners directly to the map container
+  return null;
+}
 
 export function LocationMapPicker({ onLocationSelect, value, error }: LocationMapPickerProps) {
   const [isClient, setIsClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState(value || '');
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.0060]); // Default to NYC
   const mapRef = useRef<any>(null);
+  const mapInstanceRef = useRef<any>(null);
 
   // Handle client-side rendering
   useEffect(() => {
@@ -91,14 +219,66 @@ export function LocationMapPicker({ onLocationSelect, value, error }: LocationMa
     }
   }, []);
 
-  // Search functionality using Nominatim (OpenStreetMap's geocoding service)
+  // Handle map click events with enhanced POI detection
+  const handleMapClick = useCallback(async (e: any) => {
+    const { lat, lng } = e.latlng;
+    setIsReverseGeocoding(true);
+    
+    try {
+      // Enhanced reverse geocoding with detailed address information
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&extratags=1&namedetails=1&zoom=18`
+      );
+      const data = await response.json();
+      
+      // Parse detailed address information
+      const address = parseDetailedAddress(data, lat, lng);
+      
+      onLocationSelect({
+        address: address.formatted,
+        lat,
+        lng,
+        details: address.details
+      });
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+      // Fallback to coordinates if reverse geocoding fails
+      onLocationSelect({
+        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        lat,
+        lng
+      });
+    } finally {
+      setIsReverseGeocoding(false);
+    }
+  }, [onLocationSelect]);
+
+  // Set up map click handler when map is ready
+  useEffect(() => {
+    if (mapRef.current && mapRef.current.leafletElement) {
+      const map = mapRef.current.leafletElement;
+      mapInstanceRef.current = map;
+      
+      const handleClick = (e: any) => {
+        handleMapClick(e);
+      };
+      
+      map.on('click', handleClick);
+      
+      return () => {
+        map.off('click', handleClick);
+      };
+    }
+  }, [handleMapClick]);
+
+  // Enhanced search functionality with detailed POI detection
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1&extratags=1&namedetails=1`
       );
       const data = await response.json();
       
@@ -111,11 +291,15 @@ export function LocationMapPicker({ onLocationSelect, value, error }: LocationMa
         setMarkerPosition(position);
         setMapCenter(position);
         
-        // Update parent component
+        // Parse detailed address information
+        const address = parseDetailedAddress(result, lat, lng);
+        
+        // Update parent component with enhanced details
         onLocationSelect({
-          address: result.display_name || searchQuery,
+          address: address.formatted,
           lat,
-          lng
+          lng,
+          details: address.details
         });
         
         // Fly to location if map is available
@@ -191,7 +375,7 @@ export function LocationMapPicker({ onLocationSelect, value, error }: LocationMa
         </div>
 
         {/* Map Container */}
-        <div className="w-full h-64 rounded-md border border-gray-300 overflow-hidden">
+        <div className="w-full h-64 rounded-md border border-gray-300 overflow-hidden relative group">
           <MapContainer
             center={mapCenter}
             zoom={13}
@@ -207,15 +391,36 @@ export function LocationMapPicker({ onLocationSelect, value, error }: LocationMa
               onLocationSelect={handleLocationSelect}
             />
           </MapContainer>
+          
+          {/* Click indicator overlay */}
+          {!isReverseGeocoding && (
+            <div className="absolute top-2 right-2 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium opacity-90 group-hover:opacity-100 transition-opacity">
+              Click to select location
+            </div>
+          )}
+          
+          {/* Loading overlay for reverse geocoding */}
+          {isReverseGeocoding && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <div className="bg-white rounded-lg p-4 flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-gray-700">Getting address...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Instructions */}
         <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded border">
           <p className="mb-1"><strong>How to select your location:</strong></p>
           <p className="mb-1">• Type your address and click "Search"</p>
-          <p className="text-gray-400">• Map click functionality coming soon</p>
+          <p className="mb-1">• Click anywhere on the map to select that location</p>
+          <p className="mb-1">• Click on specific buildings, roads, or landmarks for precise selection</p>
           <p className="mt-2 text-green-600">
             ✅ <strong>100% Free</strong> - No API key or billing required!
+          </p>
+          <p className="mt-1 text-blue-600">
+            🎯 <strong>Enhanced Selection</strong> - Detects buildings, roads, shops, and POIs!
           </p>
         </div>
       </div>

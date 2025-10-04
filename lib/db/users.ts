@@ -306,7 +306,8 @@ export async function searchUsers(filters: {
   }
   
   if (filters.geohashes && filters.geohashes.length > 0) {
-    query.location_geohash = { $in: filters.geohashes };
+    // Use prefix matching for geohash search (precision 5 prefixes match precision 7 geohashes)
+    query.location_geohash = { $regex: `^(${filters.geohashes.join('|')})` };
   }
   
   if (filters.excludeUserCode) {
@@ -344,18 +345,16 @@ export async function getUsersWithAvailability(filters: {
   }
   
   if (filters.geohashes && filters.geohashes.length > 0) {
-    query.location_geohash = { $in: filters.geohashes };
+    // Use prefix matching for geohash search (precision 5 prefixes match precision 7 geohashes)
+    query.location_geohash = { $regex: `^(${filters.geohashes.join('|')})` };
   }
   
   if (filters.excludeUserCode) {
     query.user_code = { $ne: filters.excludeUserCode };
   }
   
-  // Only include users with public profiles or public blood groups
-  query.$or = [
-    { public_profile: true },
-    { blood_group_public: { $exists: true } }
-  ];
+  // Only include users with public profiles for donor search
+  query.public_profile = true;
   
   const users = await collection
     .find(query)
