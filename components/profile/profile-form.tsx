@@ -6,10 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin } from 'lucide-react';
+import { MapPin, Trash2, AlertTriangle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { DonationRecordButton } from './donation-record-button';
 import { LocationPickerModal } from './location-picker-modal';
+import { DeleteAccountModal } from './delete-account-modal';
 
 interface UserProfile {
   id: string;
@@ -53,6 +54,7 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
   });
   const [locationData, setLocationData] = useState<{ address: string; lat: number; lng: number; details?: any } | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Donation record form state
   const [showDonationRecordModal, setShowDonationRecordModal] = useState(false);
@@ -184,6 +186,28 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
       onError(error.message || 'Failed to add donation record');
     } finally {
       setDonationRecordSaving(false);
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async (userCode: string, confirmationText: string) => {
+    try {
+      await apiClient.delete('/api/profile/delete', {
+        user_code: userCode,
+        confirmation_text: confirmationText
+      });
+
+      // Clear all local storage
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('pending_verification');
+
+      // Redirect to home page
+      window.location.href = '/';
+      
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to delete account');
     }
   };
 
@@ -665,6 +689,60 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
         </div>
       )}
 
+      {/* Danger Zone - Delete Account */}
+      {profile && (
+        <Card className="p-6 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-800">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">
+                Danger Zone
+              </h3>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Irreversible and destructive actions
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">
+                    Delete Account
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                    Permanently delete your account and all associated data. This action cannot be undone.
+                  </p>
+                  <div className="text-xs text-red-600 dark:text-red-400 space-y-1">
+                    <p><strong>This will delete:</strong></p>
+                    <ul className="list-disc list-inside ml-2 space-y-0.5">
+                      <li>Your user profile and account</li>
+                      <li>All family member records</li>
+                      <li>All donation history</li>
+                      <li>All notifications and invites</li>
+                      <li>All emergency alerts</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Account
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Location Picker Modal */}
       <LocationPickerModal
         isOpen={showLocationModal}
@@ -675,6 +753,15 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
         }}
         currentLocation={formData.location_address}
         currentLocationData={locationData || undefined}
+      />
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+        userCode={profile?.user_code || ''}
+        userName={profile?.name}
       />
     </div>
   );
