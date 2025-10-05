@@ -1,10 +1,18 @@
 // Admin Alert Preferences API for Blood Node
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/middleware/admin-auth';
+import { withAdminAuth, AdminRequest } from '@/lib/middleware/admin-auth';
 import { AdminAlertService } from '@/lib/services/admin-alerts';
 
-async function handler(request: NextRequest, { adminId }: { adminId: string }) {
+async function handler(request: AdminRequest) {
   const alertService = AdminAlertService.getInstance();
+  const adminId = request.admin?.id;
+
+  if (!adminId) {
+    return NextResponse.json(
+      { error: 'Admin authentication required' },
+      { status: 401 }
+    );
+  }
 
   if (request.method === 'GET') {
     // Get alert preferences

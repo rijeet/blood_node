@@ -8,8 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Trash2, AlertTriangle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { decodeGeohash } from '@/lib/geo';
 import { DonationRecordButton } from './donation-record-button';
 import { LocationPickerModal } from './location-picker-modal';
+import { LocationUpdateModal } from './location-update-modal';
 import { DeleteAccountModal } from './delete-account-modal';
 
 interface UserProfile {
@@ -19,6 +21,7 @@ interface UserProfile {
   phone?: string;
   blood_group_public?: string;
   location_address?: string;
+  location_geohash?: string;
   last_donation_date?: string;
   availability: {
     isAvailable: boolean;
@@ -54,6 +57,7 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
   });
   const [locationData, setLocationData] = useState<{ address: string; lat: number; lng: number; details?: any } | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showLocationUpdateModal, setShowLocationUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Donation record form state
@@ -96,11 +100,28 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
       
       // Set location data if available
       if (result.user.location_address) {
+        let coordinates = { lat: 0, lng: 0 };
+        
+        // Decode geohash to get coordinates if available
+        if (result.user.location_geohash) {
+          try {
+            const decoded = decodeGeohash(result.user.location_geohash);
+            if (decoded && typeof decoded.lat === 'number' && typeof decoded.lng === 'number') {
+              coordinates = decoded;
+            }
+          } catch (error) {
+            console.error('Failed to decode geohash:', error);
+          }
+        }
+        
         setLocationData({
           address: result.user.location_address,
-          lat: 0, // Will be updated when user selects new location
-          lng: 0  // Will be updated when user selects new location
+          lat: coordinates.lat,
+          lng: coordinates.lng
         });
+      } else {
+        // Clear location data if no address
+        setLocationData(null);
       }
       
       // Store the initial donation date for comparison
@@ -128,9 +149,8 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
         name: formData.name || null,
         phone: formData.phone || null,
         blood_group_public: formData.blood_group_public || null,
-        location_address: formData.location_address || null,
-        location_geohash: locationData ? `${locationData.lat},${locationData.lng}` : null,
-        last_donation_date: formData.last_donation_date || null
+        last_donation_date: formData.last_donation_date || null,
+        public_profile: formData.public_profile
       });
 
       setProfile(result.user);
@@ -473,55 +493,27 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
             </h3>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Location Address
+                Location Information
               </label>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  value={formData.location_address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, location_address: e.target.value }))}
-                  placeholder="City, State, Country"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowLocationModal(true)}
-                  className="px-4 py-3"
-                >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Pick Location
-                </Button>
-              </div>
-              {locationData && (
-                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm">
-                  <p className="text-green-800">
-                    <strong>Selected Location:</strong> {locationData.address}
-                  </p>
-                  <p className="text-green-600 text-xs">
-                    Coordinates: {locationData.lat.toFixed(6)}, {locationData.lng.toFixed(6)}
-                  </p>
-                  {locationData.details && (
-                    <div className="mt-1 text-xs text-green-700">
-                      {locationData.details.building && (
-                        <p><strong>Building:</strong> {locationData.details.building}</p>
-                      )}
-                      {locationData.details.road && (
-                        <p><strong>Road:</strong> {locationData.details.road}</p>
-                      )}
-                      {locationData.details.houseNumber && (
-                        <p><strong>House Number:</strong> {locationData.details.houseNumber}</p>
-                      )}
-                      {locationData.details.amenity && (
-                        <p><strong>Type:</strong> {locationData.details.amenity}</p>
-                      )}
-                      {locationData.details.shop && (
-                        <p><strong>Shop:</strong> {locationData.details.shop}</p>
-                      )}
-                    </div>
-                  )}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                      {formData.location_address || 'No location set'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLocationUpdateModal(true)}
+                    className="ml-3"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Update Location
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -758,6 +750,19 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
         }}
         currentLocation={formData.location_address}
         currentLocationData={locationData || undefined}
+      />
+
+      {/* Location Update Modal */}
+      <LocationUpdateModal
+        isOpen={showLocationUpdateModal}
+        onClose={() => setShowLocationUpdateModal(false)}
+        onSuccess={(message) => {
+          onSuccess(message);
+          loadProfile(); // Reload profile to get updated location
+        }}
+        onError={onError}
+        currentLocation={formData.location_address}
+        currentLocationGeohash={profile?.location_geohash}
       />
 
       {/* Delete Account Modal */}

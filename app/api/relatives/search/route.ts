@@ -1,6 +1,7 @@
 // Search relatives API route
 
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { searchRelatives } from '@/lib/db/relatives';
 import { getGeohashesInRadius } from '@/lib/geo';
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Build search filters
     const filters: any = {
-      userCode: user.user_code,
+      userId: new ObjectId(user.sub),
       limit
     };
 

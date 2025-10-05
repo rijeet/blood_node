@@ -6,6 +6,7 @@ import { authenticateRequest } from '@/lib/middleware/auth';
 import { 
   createRelative, 
   getRelativesByOwner, 
+  getAccessibleRelatives,
   countRelativesByOwner 
 } from '@/lib/db/relatives';
 import { findUserById } from '@/lib/db/users';
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const relatives = await getRelativesByOwner(new ObjectId(user.sub));
+    const relatives = await getAccessibleRelatives(new ObjectId(user.sub));
     
     return NextResponse.json({
       success: true,

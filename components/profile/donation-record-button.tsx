@@ -26,10 +26,32 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [records, setRecords] = useState<DonationRecord[]>([]);
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchRecordCount();
   }, [userId]);
+
+  // Handle body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showModal]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+    };
+  }, [hoverTimeout]);
 
   const fetchRecordCount = async () => {
     try {
@@ -51,11 +73,25 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
     }
   };
 
-  const handleClick = async () => {
+  const handleMouseEnter = async () => {
+    // Clear any existing timeout
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    
     if (!showModal) {
       await fetchRecords();
+      setShowModal(true);
     }
-    setShowModal(!showModal);
+  };
+
+  const handleMouseLeave = () => {
+    // Add a small delay before closing to prevent flickering
+    const timeout = setTimeout(() => {
+      setShowModal(false);
+    }, 100);
+    setHoverTimeout(timeout);
   };
 
   if (loading) {
@@ -70,7 +106,7 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
   return (
     <>
       <Button 
-        onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
         variant="outline"
         className={`flex items-center space-x-2 ${className}`}
       >
@@ -82,22 +118,32 @@ export function DonationRecordButton({ userId, className }: DonationRecordButton
       </Button>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onMouseLeave={handleMouseLeave}
+        >
+          <Card 
+            className="max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            onMouseEnter={() => {
+              // Clear any existing timeout when mouse enters modal
+              if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                setHoverTimeout(null);
+              }
+              setShowModal(true);
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Donation History</h2>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowModal(false)}
-                >
-                  ✕
-                </Button>
+                <div className="text-sm text-gray-500">
+                  Hover to keep open
+                </div>
               </div>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-6 overflow-y-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
               {records.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-4">🩸</div>

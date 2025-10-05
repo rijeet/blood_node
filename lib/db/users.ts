@@ -208,6 +208,7 @@ export async function updateUserProfile(
     location_address?: string;
     blood_group_public?: string;
     last_donation_date?: Date;
+    public_profile?: boolean;
   }
 ): Promise<void> {
   const collection = await getUsersCollection();
@@ -233,6 +234,10 @@ export async function updateUserProfile(
   
   if (updates.last_donation_date !== undefined) {
     updateData.last_donation_date = updates.last_donation_date;
+  }
+  
+  if (updates.public_profile !== undefined) {
+    updateData.public_profile = updates.public_profile;
   }
   
   await collection.updateOne(

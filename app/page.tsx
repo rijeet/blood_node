@@ -7,7 +7,7 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { LoginForm } from "@/components/auth/login-form";
 import { RelativeForm } from "@/components/relatives/relative-form";
 import { BloodGroupGrid } from "@/components/family/blood-group-grid";
-import { FamilyInviteModal } from "@/components/family/family-invite-modal";
+import { FamilyInviteModalAdvanced } from "@/components/family/family-invite-modal-advanced";
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 
 interface User {

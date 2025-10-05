@@ -206,7 +206,8 @@ export async function sendFamilyInviteEmail(
     inviterName,
     relation,
     inviteToken: token,
-    expiryHours: 24
+    expiryHours: 24,
+    baseUrl
   });
 
   return sendEmail({

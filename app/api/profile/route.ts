@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
         phone: userRecord.phone,
         blood_group_public: userRecord.blood_group_public,
         location_address: userRecord.location_address,
+        location_geohash: userRecord.location_geohash,
         last_donation_date: userRecord.last_donation_date,
         availability: availability,
         availability_status: availabilityStatus,
@@ -76,7 +77,8 @@ export async function PUT(request: NextRequest) {
       location_address,
       location_geohash,
       blood_group_public,
-      last_donation_date
+      last_donation_date,
+      public_profile
     } = body;
 
     // Validate last_donation_date if provided
@@ -123,7 +125,8 @@ export async function PUT(request: NextRequest) {
       phone,
       location_address,
       blood_group_public,
-      last_donation_date: donationDate
+      last_donation_date: donationDate,
+      public_profile
     });
 
     // Update location geohash if provided

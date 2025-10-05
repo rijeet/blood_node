@@ -66,9 +66,9 @@ export async function GET(request: NextRequest) {
           location: relativeUser.location_address || 'Unknown',
           phone: relativeUser.phone || 'Not provided',
           relation: relative.relation,
-          last_donation_date: relative.last_donation_date,
+          last_donation_date: relativeUser.last_donation_date, // Use user's donation date, not relative record
           time_availability: relative.time_availability,
-          is_available: isAvailableForDonation(relative.last_donation_date),
+          is_available: isAvailableForDonation(relativeUser.last_donation_date), // Use user's donation date
           created_at: relative.created_at
         };
       })

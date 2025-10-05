@@ -25,7 +25,7 @@ export interface AdminAlert {
   is_read: boolean;
   created_at: Date;
   read_at?: Date;
-  read_by?: ObjectId;
+  read_by?: ObjectId | string;
 }
 
 export interface AlertPreferences {

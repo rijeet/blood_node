@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DonorSearch } from '@/components/donors/donor-search';
 import { EmergencyAlert } from '@/components/emergency/emergency-alert';
-import { FamilyInviteModal } from '@/components/family/family-invite-modal';
+import { FamilyInviteModalAdvanced } from '@/components/family/family-invite-modal-advanced';
 import { BloodGroupGrid } from '@/components/family/blood-group-grid';
 import { InviteTokenInput } from '@/components/family/invite-token-input';
 import { ProfileForm } from '@/components/profile/profile-form';
@@ -290,7 +290,7 @@ export function DashboardTabs({ user, onError, onSuccess }: DashboardTabsProps) 
       {renderTabContent()}
 
       {/* Family Invite Modal */}
-      <FamilyInviteModal
+      <FamilyInviteModalAdvanced
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         onSuccess={handleInviteSuccess}

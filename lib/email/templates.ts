@@ -30,6 +30,7 @@ export interface FamilyInviteEmailData extends EmailTemplateData {
   relation: string;
   inviteToken: string;
   expiryHours: number;
+  baseUrl?: string;
 }
 
 export interface WelcomeEmailData extends EmailTemplateData {
@@ -289,6 +290,13 @@ export function createFamilyInviteEmailTemplate(data: FamilyInviteEmailData): st
             <p>Blood Node is a secure, privacy-first application that helps families map their blood types and find compatible donors in emergencies. All your data is encrypted end-to-end, so only you and your family can see it.</p>
           </div>
           
+          <p><strong>New to Blood Node?</strong> Visit our home page to learn more about how we help families stay connected and prepared for emergencies.</p>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.baseUrl || 'http://localhost:3000'}" class="button" style="background: #059669; margin-right: 10px;">Learn More & Create Account</a>
+            <a href="${data.baseUrl || 'http://localhost:3000'}" class="button" style="background: #dc2626;">Go to Blood Node</a>
+          </div>
+          
           <p>To accept this invitation, follow these steps:</p>
           
           <div style="background: #f3f4f6; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center;">
@@ -301,8 +309,8 @@ export function createFamilyInviteEmailTemplate(data: FamilyInviteEmailData): st
             </p>
           </div>
           
-          <div style="text-align: center;">
-            <a href="http://localhost:3000" class="button">Go to Blood Node</a>
+          <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e;"><strong>💡 For New Users:</strong> If you don't have a Blood Node account yet, create one first using the "Learn More & Create Account" button above, then use the invitation code to join your family network.</p>
           </div>
           
           <p><strong>Privacy Note:</strong> You'll be able to choose exactly what information you want to share with your family. Nothing is shared without your explicit consent.</p>
