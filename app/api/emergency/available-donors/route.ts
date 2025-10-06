@@ -3,7 +3,8 @@ import { verifyAccessToken } from '@/lib/auth/jwt';
 import { findUserById } from '@/lib/db/users';
 import { getEmergencyAlertById } from '@/lib/db/emergency';
 import { getUsersWithAvailability } from '@/lib/db/users';
-import { getGeohashesInRadius } from '@/lib/geo';
+import { getGeohashesForRadius, generateMongoQuery } from '@/lib/geo';
+import { getCompatibleBloodTypesForEmergency } from '@/lib/utils';
 import { ObjectId } from 'mongodb';
 
 // GET - Get available donors for emergency
@@ -64,13 +65,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get geohashes for the search area
-    const geohashes = getGeohashesInRadius(alert.location_lat, alert.location_lng, alert.radius_km, 5);
+    // Get geohashes for the search area using advanced system
+    // Default to 10km radius if not specified
+    const searchRadius = alert.radius_km || 10;
+    const geohashResult = getGeohashesForRadius(alert.location_lat, alert.location_lng, searchRadius);
     
-    // Find compatible donors in the area
+    // Get compatible blood types for emergency alerts
+    const compatibleBloodTypes = getCompatibleBloodTypesForEmergency(alert.blood_type);
+    
+    console.log(`Emergency search: ${geohashResult.geohashes.length} geohashes for ${searchRadius}km radius (precision: ${geohashResult.precision})`);
+    console.log(`Emergency blood type: ${alert.blood_type}`);
+    console.log(`Compatible donor types: ${compatibleBloodTypes.join(', ')}`);
+    
+    // Find compatible donors in the area using optimized query
     const donors = await getUsersWithAvailability({
-      bloodGroup: alert.blood_type,
-      geohashes: geohashes,
+      bloodGroups: compatibleBloodTypes, // Search for ALL compatible blood types
+      geohashes: geohashResult.geohashes,
       onlyAvailable: true
     });
 

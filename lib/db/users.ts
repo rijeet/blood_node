@@ -336,6 +336,7 @@ export async function searchUsers(filters: {
  */
 export async function getUsersWithAvailability(filters: {
   bloodGroup?: string;
+  bloodGroups?: string[]; // Support multiple blood types
   geohashes?: string[];
   excludeUserCode?: string;
   onlyAvailable?: boolean;
@@ -347,6 +348,8 @@ export async function getUsersWithAvailability(filters: {
   
   if (filters.bloodGroup) {
     query.blood_group_public = filters.bloodGroup;
+  } else if (filters.bloodGroups && filters.bloodGroups.length > 0) {
+    query.blood_group_public = { $in: filters.bloodGroups };
   }
   
   if (filters.geohashes && filters.geohashes.length > 0) {

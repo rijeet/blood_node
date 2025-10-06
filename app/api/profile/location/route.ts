@@ -43,9 +43,9 @@ export async function PUT(request: NextRequest) {
           );
         }
         
-        // Convert to precision 7 geohash
-        processedLocationGeohash = encodeGeohash(lat, lng, 7);
-        console.log(`Converted coordinates ${lat}, ${lng} to geohash: ${processedLocationGeohash}`);
+        // Convert to precision 6 geohash (optimal for 10km radius)
+        processedLocationGeohash = encodeGeohash(lat, lng, 6);
+        console.log(`Converted coordinates ${lat}, ${lng} to 6-char geohash: ${processedLocationGeohash}`);
       } catch (error) {
         console.error('Error converting coordinates to geohash:', error);
         return NextResponse.json(

@@ -5,8 +5,9 @@ import { findUserById } from '@/lib/db/users';
 import { createEmergencyAlert, updateEmergencyAlertStatus } from '@/lib/db/emergency';
 import { getUsersWithAvailability } from '@/lib/db/users';
 import { createEmergencyNotificationsForUsers } from '@/lib/db/notifications';
-import { getGeohashesInRadius } from '@/lib/geo';
+import { getGeohashesForRadius, generateMongoQuery, encodeGeohash } from '@/lib/geo';
 import { sendEmail, sendBatchEmails } from '@/lib/email/service';
+import { getCompatibleBloodTypesForEmergency } from '@/lib/utils';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       blood_type, 
       lat, 
       lng, 
-      radius_km = 20, // Fixed 20km radius
+      radius_km = 10, // Default 10km radius for better precision
       urgency_level = 'high', // low, medium, high, critical
       // New emergency fields
       required_bags,
@@ -89,15 +90,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get geohashes for the search area
-    const geohashes = getGeohashesInRadius(lat, lng, radius_km, 5);
+    // Get geohashes for the search area using advanced system
+    const geohashResult = getGeohashesForRadius(lat, lng, radius_km);
     
-    // Find compatible donors in the area using geohash
+    // Get compatible blood types for emergency alerts
+    const compatibleBloodTypes = getCompatibleBloodTypesForEmergency(blood_type);
+    
+    console.log(`\n🚨 Emergency Alert Debug Information:`);
+    console.log(`📍 Location: ${lat}, ${lng}`);
+    console.log(`🗺️  Geohash: ${encodeGeohash(lat, lng, 6)}`);
+    console.log(`📏 Radius: ${radius_km}km`);
+    console.log(`🎯 Precision: ${geohashResult.precision} characters`);
+    console.log(`📊 Geohashes to search: ${geohashResult.geohashes.length}`);
+    console.log(`🔍 Sample geohashes: ${geohashResult.geohashes.slice(0, 5).join(', ')}...`);
+    console.log(`🩸 Emergency blood type: ${blood_type}`);
+    console.log(`🔄 Compatible donor types: ${compatibleBloodTypes.join(', ')}`);
+    
+    // Find compatible donors in the area using optimized geohash search
     const donors = await getUsersWithAvailability({
-      bloodGroup: blood_type,
-      geohashes: geohashes,
+      bloodGroups: compatibleBloodTypes, // Search for ALL compatible blood types
+      geohashes: geohashResult.geohashes,
       onlyAvailable: true
     });
+    
+    console.log(`\n👥 Donor Search Results:`);
+    console.log(`🩸 Blood type needed: ${blood_type}`);
+    console.log(`🔍 Found ${donors.length} potential donors in area`);
+    
+    if (donors.length > 0) {
+      console.log(`📋 Donor details:`);
+      donors.forEach((donor, index) => {
+        console.log(`   ${index + 1}. ${donor.user_code} - ${donor.blood_group_public || 'Unknown'} - Available: ${donor.availability?.isAvailable || false}`);
+      });
+    } else {
+      console.log(`❌ No donors found in the search area`);
+    }
 
     if (donors.length === 0) {
       return NextResponse.json({
@@ -202,7 +229,7 @@ export async function POST(request: NextRequest) {
                 <div class="info-box">
                   ${location_address ? `<p><strong>Address:</strong> ${location_address}</p>` : ''}
                   <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-                  <p><strong>Search Radius:</strong> 20km</p>
+                  <p><strong>Search Radius:</strong> ${radius_km}km</p>
                   <p><strong>Alert Time:</strong> ${new Date().toLocaleString()}</p>
                 </div>
 
@@ -245,53 +272,74 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    // Send emergency alert emails
+    // COMMENTED OUT: Send emergency alert emails (using notifications instead)
     let emailsSent = 0;
-    try {
-      const emailResult = await sendBatchEmails(alertEmails);
-      if (emailResult.success) {
-        emailsSent = alertEmails.length;
-        console.log(`Emergency alert sent to ${emailsSent} donors`);
-      } else {
-        console.error('Failed to send emergency alert emails:', emailResult.error);
-      }
-    } catch (emailError) {
-      console.error('Emergency email error:', emailError);
-    }
-
-    // Create notifications for all users in the area (not just compatible donors)
-    const allUsersInArea = await getUsersWithAvailability({
-      geohashes: geohashes,
-      onlyAvailable: true
-    });
-
-    // Create notifications for users who might be interested in the emergency
-    const notificationUserIds = allUsersInArea.map(user => new ObjectId(user._id));
+    console.log(`\n📧 Email Sending Details (COMMENTED OUT):`);
+    console.log(`📝 Would have prepared ${alertEmails.length} emails for sending`);
+    console.log(`📧 Email addresses: ${alertEmails.map(email => email.to).join(', ')}`);
+    console.log(`ℹ️  Using in-app notifications instead of emails`);
     
-    if (notificationUserIds.length > 0) {
-      await createEmergencyNotificationsForUsers(
-        emergencyAlert._id!,
-        blood_type,
-        emergencyAlert.location_geohash,
-        location_address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-        urgency_level,
-        notificationUserIds
-      );
+    // TODO: Uncomment when email service is properly configured
+    // try {
+    //   const emailResult = await sendBatchEmails(alertEmails);
+    //   if (emailResult.success) {
+    //     emailsSent = alertEmails.length;
+    //     console.log(`✅ Emergency alert sent to ${emailsSent} donors`);
+    //   } else {
+    //     console.error('❌ Failed to send emergency alert emails:', emailResult.error);
+    //   }
+    // } catch (emailError) {
+    //   console.error('❌ Emergency email error:', emailError);
+    // }
+
+    // Create notifications for compatible donors in the area
+    let notificationsSent = 0;
+    let notificationUserIds: ObjectId[] = [];
+    
+    if (donors.length > 0) {
+      notificationUserIds = donors.map(donor => new ObjectId(donor._id));
+      
+      try {
+        await createEmergencyNotificationsForUsers(
+          emergencyAlert._id!,
+          blood_type,
+          emergencyAlert.location_geohash,
+          location_address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          urgency_level,
+          notificationUserIds
+        );
+        notificationsSent = donors.length;
+        console.log(`✅ Emergency notifications sent to ${notificationsSent} donors`);
+      } catch (notificationError) {
+        console.error('❌ Failed to send emergency notifications:', notificationError);
+      }
+    } else {
+      console.log(`ℹ️  No donors to notify`);
     }
 
     // Update the emergency alert with notification count
     await updateEmergencyAlertStatus(
       emergencyAlert._id!,
       'active',
-      emailsSent,
+      notificationsSent, // Use notifications instead of emails
       0
     );
+
+    console.log(`\n📊 Final Emergency Alert Summary:`);
+    console.log(`🆔 Alert ID: ${emergencyAlert._id?.toString()}`);
+    console.log(`🔢 Serial Number: ${emergencyAlert.serial_number}`);
+    console.log(`👥 Total donors found: ${donors.length}`);
+    console.log(`📧 Emails sent: ${emailsSent} (commented out)`);
+    console.log(`🔔 Notifications sent: ${notificationsSent}`);
+    console.log(`📍 Location: ${lat}, ${lng} (${location_address || 'No address'})`);
+    console.log(`🩸 Blood type: ${blood_type}`);
+    console.log(`📏 Search radius: ${radius_km}km`);
 
     return NextResponse.json({
       success: true,
       message: 'Emergency alert sent successfully',
       alert_sent: true,
-      donors_notified: emailsSent,
+      donors_notified: notificationsSent, // Use notifications instead of emails
       total_donors_found: donors.length,
       alert_id: emergencyAlert._id?.toString(),
       serial_number: emergencyAlert.serial_number,
@@ -299,7 +347,7 @@ export async function POST(request: NextRequest) {
         blood_type,
         location: { lat, lng },
         location_address,
-        radius_km: 20,
+        radius_km: radius_km,
         urgency_level,
         required_bags,
         patient_condition

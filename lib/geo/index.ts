@@ -1,9 +1,19 @@
 // Geolocation utilities for Blood Node
-// @ts-expect-error - ngeohash doesn't have type definitions
-import * as ngeohash from 'ngeohash';
+// Using advanced geohash implementation for better performance and accuracy
+import {
+  encodeGeohash as advancedEncodeGeohash,
+  decodeGeohash as advancedDecodeGeohash,
+  calculatePrecisionForRadius,
+  getGeohashesForRadius as advancedGetGeohashesForRadius,
+  generateMongoQuery as advancedGenerateMongoQuery,
+  calculateDistance as advancedCalculateDistance,
+  getGeohashNeighbors,
+  GeohashSearchResult
+} from './advanced-geohash';
 
 /**
  * Calculate distance between two points using Haversine formula
+ * Now using the advanced implementation
  */
 export function calculateDistance(
   lat1: number,
@@ -11,37 +21,26 @@ export function calculateDistance(
   lat2: number,
   lng2: number
 ): number {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function toRad(degrees: number): number {
-  return degrees * (Math.PI / 180);
+  return advancedCalculateDistance(lat1, lng1, lat2, lng2);
 }
 
 /**
- * Encode coordinates to geohash using ngeohash library
+ * Encode coordinates to geohash using advanced implementation
+ * Default precision is now 6 characters for optimal 10km radius performance
  */
-export function encodeGeohash(lat: number, lng: number, precision: number = 5): string {
-  return ngeohash.encode(lat, lng, precision);
+export function encodeGeohash(lat: number, lng: number, precision: number = 6): string {
+  return advancedEncodeGeohash(lat, lng, precision);
 }
 
 /**
- * Decode geohash to approximate coordinates using ngeohash library
+ * Decode geohash to approximate coordinates using advanced implementation
  */
 export function decodeGeohash(geohash: string): { lat: number; lng: number } {
-  return ngeohash.decode(geohash);
+  const result = advancedDecodeGeohash(geohash);
+  return {
+    lat: result.latitude[2], // Center latitude
+    lng: result.longitude[2] // Center longitude
+  };
 }
 
 /**
@@ -52,53 +51,35 @@ export function getGeohashCentroid(geohash: string): { lat: number; lng: number 
 }
 
 /**
- * Get geohashes within a certain radius
+ * Get geohashes within a certain radius using advanced grid-based sampling
+ * Now uses dynamic precision and optimized grid sampling
  */
 export function getGeohashesInRadius(
   centerLat: number,
   centerLng: number,
   radiusKm: number,
-  precision: number = 5
+  precision?: number
 ): string[] {
-  const center = encodeGeohash(centerLat, centerLng, precision);
-  const neighbors: string[] = [center];
-  
-  // Get all neighbors of the center geohash
-  const neighborHashes = ngeohash.neighbors(center);
-  neighbors.push(...neighborHashes);
-  
-  // For larger radius, we need to check more levels of neighbors
-  if (radiusKm > 10) {
-    const extendedNeighbors: string[] = [];
-    
-    // Level 2: neighbors of neighbors
-    for (const neighbor of neighborHashes) {
-      try {
-        const neighborOfNeighbor = ngeohash.neighbors(neighbor);
-        extendedNeighbors.push(...neighborOfNeighbor);
-      } catch (error) {
-        continue;
-      }
-    }
-    neighbors.push(...extendedNeighbors);
-    
-    // For 20km+ radius, add level 3 neighbors
-    if (radiusKm >= 20) {
-      const level3Neighbors: string[] = [];
-      for (const neighbor of extendedNeighbors) {
-        try {
-          const neighborOfNeighborOfNeighbor = ngeohash.neighbors(neighbor);
-          level3Neighbors.push(...neighborOfNeighborOfNeighbor);
-        } catch (error) {
-          continue;
-        }
-      }
-      neighbors.push(...level3Neighbors);
-    }
-  }
-  
-  // Remove duplicates
-  return [...new Set(neighbors)];
+  const result = advancedGetGeohashesForRadius(centerLat, centerLng, radiusKm);
+  return result.geohashes;
+}
+
+/**
+ * Get geohashes for radius with full search result information
+ */
+export function getGeohashesForRadius(
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number
+): GeohashSearchResult {
+  return advancedGetGeohashesForRadius(centerLat, centerLng, radiusKm);
+}
+
+/**
+ * Generate MongoDB query for geohash search
+ */
+export function generateMongoQuery(geohashes: string[]): { location_geohash: { $in: string[] } } {
+  return advancedGenerateMongoQuery(geohashes);
 }
 
 /**
@@ -229,18 +210,14 @@ export function findEmergencyDonors(
 }
 
 /**
- * Calculate geohash precision based on radius
+ * Calculate geohash precision based on radius using advanced algorithm
  */
 export function getGeohashPrecisionForRadius(radiusKm: number): number {
-  if (radiusKm <= 1) return 7;      // ~150m precision
-  if (radiusKm <= 5) return 6;      // ~600m precision
-  if (radiusKm <= 20) return 5;     // ~2.4km precision
-  if (radiusKm <= 100) return 4;    // ~20km precision
-  return 3;                          // ~78km precision
+  return calculatePrecisionForRadius(radiusKm);
 }
 
 /**
- * Get geohash bounds for a given geohash
+ * Get geohash bounds for a given geohash using advanced implementation
  */
 export function getGeohashBounds(geohash: string): {
   north: number;
@@ -248,7 +225,13 @@ export function getGeohashBounds(geohash: string): {
   east: number;
   west: number;
 } {
-  return ngeohash.decode_bbox(geohash);
+  const result = advancedDecodeGeohash(geohash);
+  return {
+    north: result.latitude[1],
+    south: result.latitude[0],
+    east: result.longitude[1],
+    west: result.longitude[0]
+  };
 }
 
 /**

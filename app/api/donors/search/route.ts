@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { getUsersWithAvailability } from '@/lib/db/users';
 import { getDonationRecordCount } from '@/lib/db/donation-records';
-import { getGeohashesInRadius, canDonateTo } from '@/lib/geo';
+import { getGeohashesForRadius, canDonateTo, calculateDistance, decodeGeohash } from '@/lib/geo';
+import { getCompatibleBloodTypesForDonorSearch } from '@/lib/utils';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     const bloodGroup = searchParams.get('blood_group');
     const lat = parseFloat(searchParams.get('lat') || '0');
     const lng = parseFloat(searchParams.get('lng') || '0');
-    const radiusKm = parseFloat(searchParams.get('radius_km') || '50');
+    const radiusKm = parseFloat(searchParams.get('radius_km') || '10'); // Default 10km radius
     const onlyAvailable = searchParams.get('only_available') === 'true';
 
     if (!bloodGroup) {
@@ -31,27 +32,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get geohashes within radius (using precision 5 for better radius matching)
-    const geohashes = getGeohashesInRadius(lat, lng, radiusKm, 5);
+    // Get geohashes within radius using advanced system
+    const geohashResult = getGeohashesForRadius(lat, lng, radiusKm);
+    
+    // Get compatible blood types for donor search
+    const compatibleBloodTypes = getCompatibleBloodTypesForDonorSearch(bloodGroup);
+    
+    console.log(`Donor search: ${geohashResult.geohashes.length} geohashes for ${radiusKm}km radius (precision: ${geohashResult.precision})`);
+    console.log(`Searching for donors with blood types: ${compatibleBloodTypes.join(', ')}`);
 
-    // Search for compatible donors
+    // Search for compatible donors using optimized geohash search
     const donors = await getUsersWithAvailability({
-      bloodGroup,
-      geohashes,
+      bloodGroups: compatibleBloodTypes, // Search for ALL compatible blood types
+      geohashes: geohashResult.geohashes,
       excludeUserCode: user.user_code,
       onlyAvailable,
       limit: 100
     });
 
-    // Filter by blood compatibility
+    // Additional filter by blood compatibility (redundant but safe)
     const compatibleDonors = donors.filter(donor => 
       donor.blood_group_public && canDonateTo(donor.blood_group_public as any, bloodGroup as any)
     );
 
-    // Format response with donation counts
+    // Format response with donation counts and distance calculations
     const formattedDonors = await Promise.all(compatibleDonors.map(async (donor) => {
       const donationCount = await getDonationRecordCount(new ObjectId(donor._id));
-      console.log(`Donor ${donor.user_code}: donation count = ${donationCount}`); // Debug log
+      
+      // Calculate distance using geohash coordinates
+      let distanceKm = null;
+      if (donor.location_geohash) {
+        try {
+          const donorCoords = decodeGeohash(donor.location_geohash);
+          distanceKm = calculateDistance(lat, lng, donorCoords.lat, donorCoords.lng);
+        } catch (error) {
+          console.warn(`Failed to decode geohash ${donor.location_geohash}:`, error);
+        }
+      }
+      
+      console.log(`Donor ${donor.user_code}: donation count = ${donationCount}, distance = ${distanceKm?.toFixed(2)}km`);
       
       return {
         user_code: donor.user_code,
@@ -61,9 +80,17 @@ export async function GET(request: NextRequest) {
         last_donation_date: donor.last_donation_date,
         availability: donor.availability,
         donation_count: donationCount,
-        distance_km: null // Would need to calculate based on exact coordinates
+        distance_km: distanceKm ? Math.round(distanceKm * 100) / 100 : null
       };
     }));
+
+    // Sort by distance if available
+    formattedDonors.sort((a, b) => {
+      if (a.distance_km === null && b.distance_km === null) return 0;
+      if (a.distance_km === null) return 1;
+      if (b.distance_km === null) return -1;
+      return a.distance_km - b.distance_km;
+    });
 
     return NextResponse.json({
       success: true,

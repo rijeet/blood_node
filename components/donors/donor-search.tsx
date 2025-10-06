@@ -103,7 +103,7 @@ export function DonorSearch({ onError }: DonorSearchProps) {
         blood_group: searchData.blood_group,
         lat: searchData.lat,
         lng: searchData.lng,
-        radius_km: '20', // Fixed 20km radius
+        radius_km: '10', // Default 10km radius for better precision
         only_available: searchData.only_available.toString()
       });
 
@@ -259,7 +259,7 @@ export function DonorSearch({ onError }: DonorSearchProps) {
               Search Results
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Found <span className="font-semibold text-red-600">{donors.length}</span> compatible donor{donors.length !== 1 ? 's' : ''} within 20km
+              Found <span className="font-semibold text-red-600">{donors.length}</span> compatible donor{donors.length !== 1 ? 's' : ''} within 10km
             </p>
           </div>
 
@@ -275,7 +275,7 @@ export function DonorSearch({ onError }: DonorSearchProps) {
                   No Donors Found
                 </h4>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  No compatible donors found in your area within 20km radius.
+                  No compatible donors found in your area within 10km radius.
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-500">
                   Try searching for a different blood group or check back later for new donors.
