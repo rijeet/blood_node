@@ -1,17 +1,17 @@
-// Admin login API route with email verification requirement
+// Admin send verification code API route
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdminLogin } from '@/lib/db/admin';
-import { generateAdminVerificationCode, generateAdminVerificationToken } from '@/lib/auth/admin';
+import { findAdminByEmail } from '@/lib/db/admin';
 import { sendEmail } from '@/lib/email/service';
+import { generateAdminVerificationCode, generateAdminVerificationToken } from '@/lib/auth/admin';
 import { securityMiddleware } from '@/lib/middleware/security';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, captcha_token } = await request.json();
+    const { email } = await request.json();
 
-    if (!email || !password) {
+    if (!email) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Email is required' },
         { status: 400 }
       );
     }
@@ -22,54 +22,19 @@ export async function POST(request: NextRequest) {
       return ipBlacklistResponse;
     }
 
-    // Apply rate limiting (stricter for admin)
+    // Apply rate limiting for admin verification
     const rateLimitResponse = await securityMiddleware.applyRateLimit(request, 'ADMIN_ATTEMPTS');
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
 
-    // Check login attempt limits
-    const loginLimitResponse = await securityMiddleware.checkLoginLimits(request, email);
-    if (loginLimitResponse) {
-      return loginLimitResponse;
-    }
+    // Find admin by email
+    const admin = await findAdminByEmail(email);
 
-    // Check if CAPTCHA is required and verify it
-    if (securityMiddleware.isCaptchaRequired('admin_login')) {
-      if (!captcha_token) {
-        return NextResponse.json(
-          { 
-            error: 'CAPTCHA required',
-            message: 'Please complete the CAPTCHA verification',
-            captcha_required: true,
-            captcha_config: securityMiddleware.getCaptchaConfig()
-          },
-          { status: 400 }
-        );
-      }
-
-      const captchaResponse = await securityMiddleware.verifyCaptcha(request, 'admin_login');
-      if (captchaResponse) {
-        return captchaResponse;
-      }
-    }
-
-    // Verify admin credentials
-    const admin = await verifyAdminLogin(email, password);
     if (!admin) {
-      // Record failed admin login attempt
-      await securityMiddleware.recordLoginAttempt(request, {
-        email,
-        success: false,
-        failure_reason: 'Invalid admin credentials'
-      });
-
-      // Check for auto-blacklist
-      await securityMiddleware.checkAutoBlacklist(request, email);
-      
       return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
+        { error: 'No admin account found with this email address' },
+        { status: 404 }
       );
     }
 
@@ -137,9 +102,8 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        message: 'Verification code sent to your email address. Please check your email and enter the code to complete login.',
-        verification_token: verificationToken,
-        requires_verification: true
+        message: 'Verification code sent to your email address',
+        verification_token: verificationToken
       });
     } catch (emailError) {
       console.error('Email sending failed:', emailError);
@@ -150,13 +114,12 @@ export async function POST(request: NextRequest) {
         message: 'Verification code (email sending failed, but code is available)',
         verification_token: verificationToken,
         verification_code: verificationCode, // Include code in response for testing
-        requires_verification: true,
         debug: 'Email service not configured - code returned in response'
       });
     }
 
   } catch (error) {
-    console.error('Admin login error:', error);
+    console.error('Admin send verification code error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

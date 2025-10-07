@@ -6,7 +6,7 @@ import { AdminUser, AdminSession, AdminPermission, ADMIN_ROLES } from '@/lib/mod
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'admin-secret-key';
-const JWT_EXPIRES_IN = '24h';
+const JWT_EXPIRES_IN = '7d'; // 7 days for admin tokens
 
 export interface AdminJWTPayload {
   admin_id: string;
@@ -162,6 +162,48 @@ export function validateAdminAccess(
   }
 
   return { allowed: true };
+}
+
+/**
+ * Generate admin verification code
+ */
+export function generateAdminVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
+ * Generate admin verification token
+ */
+export function generateAdminVerificationToken(adminId: string, code: string): string {
+  return jwt.sign(
+    { 
+      type: 'admin_verification',
+      admin_id: adminId,
+      code: code,
+      timestamp: Date.now()
+    },
+    ADMIN_JWT_SECRET,
+    { expiresIn: '15m' } // 15 minutes expiry for verification codes
+  );
+}
+
+/**
+ * Verify admin verification token
+ */
+export function verifyAdminVerificationToken(token: string): { admin_id: string; code: string } | null {
+  try {
+    const payload = jwt.verify(token, ADMIN_JWT_SECRET) as any;
+    if (payload.type === 'admin_verification') {
+      return {
+        admin_id: payload.admin_id,
+        code: payload.code
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Admin verification token verification failed:', error);
+    return null;
+  }
 }
 
 /**

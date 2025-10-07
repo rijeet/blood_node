@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
     });
 
     // COMMENTED OUT: Send emergency alert emails (using notifications instead)
-    let emailsSent = 0;
+    const emailsSent = 0;
     console.log(`\n📧 Email Sending Details (COMMENTED OUT):`);
     console.log(`📝 Would have prepared ${alertEmails.length} emails for sending`);
     console.log(`📧 Email addresses: ${alertEmails.map(email => email.to).join(', ')}`);

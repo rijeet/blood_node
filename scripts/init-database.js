@@ -125,7 +125,6 @@ const COLLECTIONS = [
       { keys: { user_id: 1 } },
       { keys: { action: 1 } },
       { keys: { resource_type: 1 } },
-      { keys: { created_at: 1 } },
       { keys: { created_at: 1 }, options: { expireAfterSeconds: 31536000 } } // 1 year TTL
     ]
   },

@@ -122,7 +122,7 @@ class TokenCleanupService {
   /**
    * Run cleanup manually
    */
-  async runManualCleanup(): Promise<{ deletedCount: number; verificationDeleted: number; refreshDeleted: number; statistics: any }> {
+  async runManualCleanup(): Promise<{ deletedCount: number; verificationDeleted: number; refreshDeleted: number; statistics: { before: any; after: any } }> {
     const statsBefore = await getTokenStatistics();
     const cleanupResult = await cleanupAllExpiredTokens();
     const statsAfter = await getTokenStatistics();

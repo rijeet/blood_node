@@ -26,7 +26,7 @@ export function getCompatibleBloodTypesForEmergency(emergencyBloodType: string):
   
   // Find all blood types that can donate to the emergency blood type
   for (const [donorType, compatibility] of Object.entries(BLOOD_TYPE_COMPATIBILITY)) {
-    if (compatibility.canDonateTo.includes(emergencyBloodType)) {
+    if (compatibility.canDonateTo.includes(emergencyBloodType as any)) {
       compatibleDonors.push(donorType);
     }
   }
@@ -45,5 +45,5 @@ export function getCompatibleBloodTypesForDonorSearch(donorBloodType: string): s
   }
   
   // For donor search, we want recipients who can receive FROM the donor blood type
-  return compatibility.canReceiveFrom;
+  return [...compatibility.canReceiveFrom];
 }

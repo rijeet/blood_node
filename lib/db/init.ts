@@ -127,7 +127,6 @@ export const COLLECTIONS: CollectionInfo[] = [
       { key: { user_id: 1 } },
       { key: { action: 1 } },
       { key: { resource_type: 1 } },
-      { key: { created_at: 1 } },
       { key: { created_at: 1 }, options: { expireAfterSeconds: 31536000 } } // 1 year TTL
     ]
   },

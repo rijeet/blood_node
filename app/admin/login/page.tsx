@@ -15,15 +15,46 @@ export default function AdminLogin() {
     password: '',
     remember_device: false
   });
+  const [verificationData, setVerificationData] = useState({
+    verification_token: '',
+    verification_code: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [step, setStep] = useState<'login' | 'verification'>('login');
 
   useEffect(() => {
-    // Check if already logged in
+    // Check if already logged in with valid token
     const adminToken = localStorage.getItem('admin_token');
     if (adminToken) {
-      router.push('/admin');
+      // Verify token is still valid before redirecting
+      fetch('/api/admin/dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          // Token is valid, redirect to admin
+          router.push('/admin');
+        } else {
+          // Token is invalid, remove it and stay on login page
+          localStorage.removeItem('admin_token');
+          setInitialLoading(false);
+        }
+      })
+      .catch(() => {
+        // Error occurred, remove token and stay on login page
+        localStorage.removeItem('admin_token');
+        setInitialLoading(false);
+      });
+    } else {
+      // No token, show login form
+      setInitialLoading(false);
     }
   }, [router]);
 
@@ -31,6 +62,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch('/api/admin/auth/login', {
@@ -47,16 +79,89 @@ export default function AdminLogin() {
         throw new Error(data.error || 'Login failed');
       }
 
+      if (data.requires_verification) {
+        // Store verification token and move to verification step
+        setVerificationData(prev => ({
+          ...prev,
+          verification_token: data.verification_token
+        }));
+        setSuccess(data.message);
+        setStep('verification');
+      } else {
+        // Store admin token and redirect (fallback)
+        localStorage.setItem('admin_token', data.token);
+        router.push('/admin');
+      }
+    } catch (error: any) {
+      console.error('Admin login error:', error);
+      setError(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerificationLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/auth/verify-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(verificationData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
       // Store admin token
       localStorage.setItem('admin_token', data.token);
       
       // Redirect to admin dashboard
       router.push('/admin');
     } catch (error: any) {
-      console.error('Admin login error:', error);
-      setError(error.message || 'Login failed');
+      console.error('Admin verification error:', error);
+      setError(error.message || 'Verification failed');
     } finally {
-      setLoading(false);
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setVerificationLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/auth/send-verification-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend code');
+      }
+
+      setVerificationData(prev => ({
+        ...prev,
+        verification_token: data.verification_token
+      }));
+      setSuccess('Verification code sent to your email address');
+    } catch (error: any) {
+      console.error('Resend code error:', error);
+      setError(error.message || 'Failed to resend code');
+    } finally {
+      setVerificationLoading(false);
     }
   };
 
@@ -67,6 +172,29 @@ export default function AdminLogin() {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+  const handleVerificationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setVerificationData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Show loading screen during initial token validation
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/25 mb-6">
+            <Shield className="h-8 w-8 text-white" />
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white text-lg">Verifying admin access...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -100,100 +228,186 @@ export default function AdminLogin() {
         <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
           <CardHeader className="space-y-2 pb-6">
             <CardTitle className="text-2xl font-bold text-white text-center">
-              Administrator Access
+              {step === 'login' ? 'Administrator Access' : 'Email Verification'}
             </CardTitle>
             <CardDescription className="text-gray-300 text-center">
-              Enter your credentials to access the admin dashboard
+              {step === 'login' 
+                ? 'Enter your credentials to access the admin dashboard'
+                : 'Enter the verification code sent to your email'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
-                    <p className="text-sm text-red-200">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-white font-medium">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 h-12 rounded-xl backdrop-blur-sm"
-                    placeholder="admin@bloodnode.com"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-white font-medium">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10 pr-12 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 h-12 rounded-xl backdrop-blur-sm"
-                    placeholder="Enter your password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <input
-                  id="remember_device"
-                  name="remember_device"
-                  type="checkbox"
-                  checked={formData.remember_device}
-                  onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded bg-white/10"
-                />
-                <Label htmlFor="remember_device" className="text-gray-300 text-sm">
-                  Remember this device for 7 days
-                </Label>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                    Signing in...
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center">
-                    Sign In
-                    <ArrowRight className="ml-2 h-4 w-4" />
+            {step === 'login' ? (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm">
+                    <div className="flex items-center">
+                      <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
+                      <p className="text-sm text-red-200">{error}</p>
+                    </div>
                   </div>
                 )}
-              </Button>
-            </form>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-white font-medium">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 h-12 rounded-xl backdrop-blur-sm"
+                      placeholder="admin@bloodnode.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-white font-medium">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="pl-10 pr-12 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 h-12 rounded-xl backdrop-blur-sm"
+                      placeholder="Enter your password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input
+                    id="remember_device"
+                    name="remember_device"
+                    type="checkbox"
+                    checked={formData.remember_device}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded bg-white/10"
+                  />
+                  <Label htmlFor="remember_device" className="text-gray-300 text-sm">
+                    Remember this device for 7 days
+                  </Label>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                      Signing in...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      Sign In
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </div>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerificationSubmit} className="space-y-6">
+                {error && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm">
+                    <div className="flex items-center">
+                      <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
+                      <p className="text-sm text-red-200">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {success && (
+                  <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4 backdrop-blur-sm">
+                    <div className="flex items-center">
+                      <div className="h-5 w-5 text-green-400 mr-3">✓</div>
+                      <p className="text-sm text-green-200">{success}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="verification_code" className="text-white font-medium">Verification Code</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="verification_code"
+                      name="verification_code"
+                      type="text"
+                      required
+                      value={verificationData.verification_code}
+                      onChange={handleVerificationInputChange}
+                      className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 h-12 rounded-xl backdrop-blur-sm text-center text-2xl tracking-widest"
+                      placeholder="000000"
+                      maxLength={6}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 text-center">
+                    Enter the 6-digit code sent to {formData.email}
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Button
+                    type="submit"
+                    disabled={verificationLoading || verificationData.verification_code.length !== 6}
+                    className="w-full h-12 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {verificationLoading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                        Verifying...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        Verify & Sign In
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </div>
+                    )}
+                  </Button>
+
+                  <div className="flex space-x-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleResendCode}
+                      disabled={verificationLoading}
+                      className="flex-1 h-10 border-white/20 text-white hover:bg-white/10"
+                    >
+                      {verificationLoading ? 'Sending...' : 'Resend Code'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStep('login')}
+                      className="flex-1 h-10 border-white/20 text-white hover:bg-white/10"
+                    >
+                      Back to Login
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
 

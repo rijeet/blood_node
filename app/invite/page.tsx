@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -14,7 +15,7 @@ interface InviteData {
   created_at: string;
 }
 
-export default function InvitePage() {
+function InviteContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   
@@ -266,15 +267,15 @@ export default function InvitePage() {
               <div className="text-center space-y-2">
                 <p className="text-xs text-gray-500">
                   Don't have an account?{' '}
-                  <a href="/" className="text-red-600 hover:underline font-medium">
+                  <Link href="/" className="text-red-600 hover:underline font-medium">
                     Sign up here
-                  </a>
+                  </Link>
                 </p>
                 <p className="text-xs text-gray-500">
                   Already have an account?{' '}
-                  <a href="/?login=true" className="text-red-600 hover:underline font-medium">
+                  <Link href="/?login=true" className="text-red-600 hover:underline font-medium">
                     Log in here
-                  </a>
+                  </Link>
                 </p>
               </div>
             </div>
@@ -294,5 +295,20 @@ export default function InvitePage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading invite...</p>
+        </div>
+      </div>
+    }>
+      <InviteContent />
+    </Suspense>
   );
 }
