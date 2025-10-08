@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
     if (!user) {
       console.log('❌ User not found');
       
-      // Record failed login attempt
-      await securityMiddleware.recordLoginAttempt(request, {
+      // Record failed login attempt with alerts
+      await securityMiddleware.recordLoginAttemptWithAlerts(request, {
         email,
         success: false,
         failure_reason: 'User not found'
@@ -104,8 +104,8 @@ export async function POST(request: NextRequest) {
     if (!user.email_verified) {
       console.log('❌ Email not verified');
       
-      // Record failed login attempt
-      await securityMiddleware.recordLoginAttempt(request, {
+      // Record failed login attempt with alerts
+      await securityMiddleware.recordLoginAttemptWithAlerts(request, {
         user_id: user._id!.toString(),
         email,
         success: false,
@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
     if (user.password_hash !== hashedPassword) {
       console.log('❌ Password validation failed');
       
-      // Record failed login attempt
-      await securityMiddleware.recordLoginAttempt(request, {
+      // Record failed login attempt with alerts
+      await securityMiddleware.recordLoginAttemptWithAlerts(request, {
         user_id: user._id!.toString(),
         email,
         success: false,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Password validation successful');
     
     // Record successful login attempt
-    await securityMiddleware.recordLoginAttempt(request, {
+    await securityMiddleware.recordLoginAttemptWithAlerts(request, {
       user_id: user._id!.toString(),
       email,
       success: true

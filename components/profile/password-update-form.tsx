@@ -5,13 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { X } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
-interface PasswordUpdateFormProps {
+interface PasswordUpdateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
   onSuccess: (message: string) => void;
   onError: (error: string) => void;
 }
 
-export function PasswordUpdateForm({ onSuccess, onError }: PasswordUpdateFormProps) {
+export function PasswordUpdateModal({ isOpen, onClose, onSuccess, onError }: PasswordUpdateModalProps) {
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -78,17 +82,9 @@ export function PasswordUpdateForm({ onSuccess, onError }: PasswordUpdateFormPro
     setLoading(true);
 
     try {
-      const response = await fetch('/api/profile/password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      const result = await apiClient.put('/api/profile/password', formData);
 
-      const result = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to update password');
       }
 
@@ -100,6 +96,7 @@ export function PasswordUpdateForm({ onSuccess, onError }: PasswordUpdateFormPro
       });
 
       onSuccess('Password updated successfully! You will receive an email confirmation shortly.');
+      onClose(); // Close modal on success
 
     } catch (error: any) {
       onError(error.message || 'Failed to update password');
@@ -108,15 +105,63 @@ export function PasswordUpdateForm({ onSuccess, onError }: PasswordUpdateFormPro
     }
   };
 
+  const handleClose = () => {
+    // Clear form when closing
+    setFormData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    onClose();
+  };
+
+  // Handle escape key
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <Card className="p-6">
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Update your account password. You'll receive an email confirmation when the change is complete.
-          </p>
-        </div>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={handleClose}
+    >
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Card className="p-6 border-0 shadow-none">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Change Password</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Update your account password. You'll receive an email confirmation when the change is complete.
+                </p>
+              </div>
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Current Password */}
@@ -254,7 +299,9 @@ export function PasswordUpdateForm({ onSuccess, onError }: PasswordUpdateFormPro
             </Button>
           </div>
         </form>
+          </div>
+        </Card>
       </div>
-    </Card>
+    </div>
   );
 }

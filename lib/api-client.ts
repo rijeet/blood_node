@@ -26,6 +26,7 @@ class ApiClient {
       }
 
       const result = await response.json();
+      
       if (result.success && result.access_token) {
         localStorage.setItem('access_token', result.access_token);
         return result.access_token;
@@ -38,10 +39,8 @@ class ApiClient {
 
   private async getValidToken(): Promise<string | null> {
     const token = localStorage.getItem('access_token');
-    // Debug logging removed to prevent console spam
     
     if (!token || token === 'undefined' || token === 'null') {
-      console.log('API Client - No valid token in localStorage');
       // Clean up invalid tokens
       if (token === 'undefined' || token === 'null') {
         localStorage.removeItem('access_token');
@@ -55,29 +54,15 @@ class ApiClient {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const now = Math.floor(Date.now() / 1000);
       
-      // Debug logging removed to prevent console spam
-      
       if (payload.exp && payload.exp > now) {
-        // Debug logging removed to prevent console spam
         return token; // Token is still valid
-      } else {
-        // Debug logging removed to prevent console spam
       }
     } catch (error) {
-      // Debug logging removed to prevent console spam
       // Token is malformed, try to refresh
     }
 
     // Token is expired or invalid, try to refresh
-    // Debug logging removed to prevent console spam
     const refreshedToken = await this.refreshToken();
-    
-    // Ensure we never return undefined as a string
-    if (refreshedToken === undefined || refreshedToken === null) {
-      // Debug logging removed to prevent console spam
-      return null;
-    }
-    
     return refreshedToken;
   }
 
@@ -117,20 +102,33 @@ class ApiClient {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
       
       if (response.status === 401) {
+        console.log('🔄 Token expired, attempting refresh...');
         // Token might be invalid, try to refresh once more
         const newToken = await this.refreshToken();
         if (newToken) {
+          console.log('✅ Token refreshed, retrying request...');
           // Retry the request with the new token
-          config.headers = {
-            ...config.headers,
-            'Authorization': `Bearer ${newToken}`,
+          const retryConfig = {
+            ...config,
+            headers: {
+              ...config.headers,
+              'Authorization': `Bearer ${newToken}`,
+            },
           };
-          const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, config);
+          const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, retryConfig);
+          
+          if (retryResponse.status === 401) {
+            console.log('❌ Still getting 401 after token refresh, redirecting to login');
+            window.location.href = '/?login=true';
+            throw new Error('Authentication failed after token refresh');
+          }
+          
           if (!retryResponse.ok) {
             throw new Error(`Request failed: ${retryResponse.status}`);
           }
           return await retryResponse.json();
         } else {
+          console.log('❌ Token refresh failed, redirecting to login');
           // Refresh failed, redirect to login
           window.location.href = '/?login=true';
           throw new Error('Authentication failed');

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { inter } from "./fonts";
+import AuthBootstrap from "@/components/auth/auth-bootstrap";
+// Removed global security alert providers; alerts are now scoped to the login page only
 
 export const metadata: Metadata = {
   title: "BLOOD NODE",
@@ -14,7 +16,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} dark`}>
-      <body>{children}</body>
+      <body>
+        {/* Invisible auth bootstrap to keep user signed in across refreshes */}
+        <AuthBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

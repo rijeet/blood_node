@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert Display Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .alert-demo {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 300px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Security Alert Display Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Scenarios</h2>
+        <p>This page simulates different user states and page types to test conditional alert display.</p>
+        
+        <div class="status info">
+            <strong>Expected Behavior:</strong><br>
+            • <strong>Login Page (Not Authenticated):</strong> Show user-specific login alerts only<br>
+            • <strong>Admin Pages (After Login):</strong> Show all security alerts<br>
+            • <strong>Other Pages:</strong> No security alerts displayed
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Simulate User States</h2>
+        <button onclick="simulateLoginPage()">Simulate Login Page (User)</button>
+        <button onclick="simulateAdminPage()">Simulate Admin Page (Admin)</button>
+        <button onclick="simulateUserPage()">Simulate User Dashboard</button>
+        <button onclick="simulateHomePage()">Simulate Home Page</button>
+        <button onclick="clearAlerts()">Clear All Alerts</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Current State</h2>
+        <div id="currentState" class="status info">
+            Page: <span id="currentPage">Home</span> | 
+            User: <span id="currentUser">Not Authenticated</span> | 
+            Role: <span id="currentRole">None</span> | 
+            Alerts: <span id="alertCount">0</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Alert Display Rules</h2>
+        <div class="status success">
+            <strong>✅ Login Page + Not Authenticated:</strong> Show user-specific alerts (failed login attempts, account lockout)
+        </div>
+        <div class="status success">
+            <strong>✅ Admin Pages + Authenticated Admin:</strong> Show all security alerts (failed logins, IP blacklist, account lockouts, suspicious activity)
+        </div>
+        <div class="status warning">
+            <strong>⚠️ Other Pages:</strong> No security alerts displayed
+        </div>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <script>
+        let currentState = {
+            page: 'home',
+            user: null,
+            role: null,
+            isAuthenticated: false
+        };
+
+        function updateState() {
+            document.getElementById('currentPage').textContent = currentState.page;
+            document.getElementById('currentUser').textContent = currentState.user || 'Not Authenticated';
+            document.getElementById('currentRole').textContent = currentState.role || 'None';
+            document.getElementById('alertCount').textContent = document.querySelectorAll('.alert-demo').length;
+        }
+
+        function clearAlerts() {
+            document.getElementById('alertContainer').innerHTML = '';
+            updateState();
+        }
+
+        function showAlert(type, title, message, severity = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert-demo';
+            alertDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <strong style="color: ${severity === 'error' ? '#dc3545' : severity === 'warning' ? '#ffc107' : '#17a2b8'}">${title}</strong>
+                        <p style="margin: 5px 0; font-size: 14px;">${message}</p>
+                        <small style="color: #666;">Type: ${type}</small>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove(); updateState();" style="background: #dc3545; padding: 5px 10px; font-size: 12px;">×</button>
+                </div>
+            `;
+            document.getElementById('alertContainer').appendChild(alertDiv);
+            updateState();
+        }
+
+        function simulateLoginPage() {
+            clearAlerts();
+            currentState = { page: 'login', user: null, role: null, isAuthenticated: false };
+            
+            // Show user-specific alerts
+            showAlert('failed_login', 'Login Attempts: 3', 'You have 3 failed login attempts. Please check your credentials.', 'warning');
+            showAlert('account_locked', 'Account Temporarily Locked', 'Your account has been temporarily locked due to multiple failed login attempts.', 'error');
+            
+            updateState();
+        }
+
+        function simulateAdminPage() {
+            clearAlerts();
+            currentState = { page: 'admin', user: 'admin@bloodnode.com', role: 'admin', isAuthenticated: true };
+            
+            // Show all security alerts
+            showAlert('failed_login', 'Multiple Failed Login Attempts: 5', 'Detected 5 failed login attempts from IP 192.168.1.100', 'warning');
+            showAlert('ip_blacklist', 'IP Address Blacklisted: 192.168.1.100', 'IP address has been automatically blacklisted due to brute force attack', 'error');
+            showAlert('account_lockout', 'Account Locked: user@example.com', 'Account has been locked for 15 minutes due to 5 failed login attempts', 'error');
+            showAlert('suspicious_activity', 'Suspicious Activity Detected', 'Detected unusual login pattern from multiple IP addresses', 'warning');
+            
+            updateState();
+        }
+
+        function simulateUserPage() {
+            clearAlerts();
+            currentState = { page: 'user', user: 'user@example.com', role: 'user', isAuthenticated: true };
+            
+            // No security alerts for regular users on dashboard
+            updateState();
+        }
+
+        function simulateHomePage() {
+            clearAlerts();
+            currentState = { page: 'home', user: null, role: null, isAuthenticated: false };
+            
+            // No security alerts on home page
+            updateState();
+        }
+
+        // Initialize
+        updateState();
+    </script>
+</body>
+</html>

@@ -210,7 +210,7 @@ export class SecurityMiddleware {
       if (failedAttempts >= 5) {
         await this.adminAlertService.alertMultipleFailedAttempts({
           ip_address: context.ip_address,
-          user_email: data.email,
+          user_email: data.email || 'Unknown',
           user_id: data.user_id,
           attempt_count: failedAttempts,
           location: 'Unknown' // Could be enhanced with IP geolocation
@@ -233,6 +233,72 @@ export class SecurityMiddleware {
             attempt_count: failedAttempts,
             ip_address: context.ip_address,
             location: 'Unknown'
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Record login attempt with security alerts
+   */
+  async recordLoginAttemptWithAlerts(
+    request: NextRequest,
+    data: {
+      user_id?: string;
+      email?: string;
+      success: boolean;
+      failure_reason?: string;
+    }
+  ): Promise<void> {
+    const context = this.extractContext(request, data.user_id, data.email);
+
+    // Use the enhanced login attempt recording with alerts
+    await this.loginLimiter.recordLoginAttemptWithAlerts({
+      user_id: data.user_id ? new ObjectId(data.user_id) : undefined,
+      email: data.email,
+      ip_address: context.ip_address,
+      user_agent: context.user_agent,
+      success: data.success,
+      failure_reason: data.failure_reason,
+      device_fingerprint: context.device_fingerprint
+    });
+
+    // Send admin alerts for failed attempts (existing logic)
+    if (!data.success) {
+      const failedAttempts = await this.loginLimiter.getFailedAttemptsCount(
+        data.email,
+        context.ip_address,
+        data.user_id ? new ObjectId(data.user_id) : undefined,
+        1 // Last hour
+      );
+
+      // Alert for multiple failed attempts (5+ attempts)
+      if (failedAttempts >= 5) {
+        await this.adminAlertService.alertMultipleFailedAttempts({
+          ip_address: context.ip_address,
+          user_email: data.email || 'Unknown',
+          user_id: data.user_id,
+          attempt_count: failedAttempts,
+          location: 'Unknown' // Could be enhanced with IP geolocation
+        });
+      }
+
+      // Alert for account lockout
+      if (failedAttempts >= 5) {
+        const lockoutResult = await this.loginLimiter.checkLoginAllowed(
+          data.email,
+          context.ip_address,
+          data.user_id ? new ObjectId(data.user_id) : undefined
+        );
+        
+        if (!lockoutResult.allowed && lockoutResult.lockoutUntil) {
+          await this.adminAlertService.alertAccountLocked({
+            ip_address: context.ip_address,
+            user_email: data.email || 'Unknown',
+            user_id: data.user_id || 'Unknown',
+            lockout_duration: lockoutResult.lockoutUntil.getTime() - Date.now(),
+            attempt_count: failedAttempts
           });
         }
       }

@@ -53,18 +53,14 @@ export function generateAccessToken(payload: {
  */
 export function verifyAccessToken(token: string): JWTPayload | null {
   try {
-    // Debug logging removed to prevent console spam
-    
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'blood-node',
       audience: 'blood-node-app',
     }) as JWTPayload;
     
-    // Debug logging removed to prevent console spam
     return decoded;
   } catch (error) {
     console.error('JWT verification failed:', error);
-    // Debug logging removed to prevent console spam
     return null;
   }
 }

@@ -129,7 +129,7 @@ export function RichTextEditor({
       title={title}
       className="h-8 w-8 p-0"
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-4 w-4 text-black dark:text-white" />
     </Button>
   );
 
@@ -266,9 +266,9 @@ export function RichTextEditor({
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className={`min-h-[400px] p-4 focus:outline-none ${
+        className={`min-h-[400px] p-4 focus:outline-none text-black dark:text-white ${
           isFocused ? 'ring-2 ring-blue-500 ring-inset' : ''
-        }`}
+        } ${className}`}
         style={{
           lineHeight: '1.6',
           fontSize: '16px'

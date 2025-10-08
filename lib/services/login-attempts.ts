@@ -2,6 +2,8 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { LoginAttempt, AccountLockout, LOGIN_LIMITS, SECURITY_EVENT_TYPES, SECURITY_SEVERITY } from '@/lib/models/security';
+import { IPBlacklistService } from './ip-blacklist';
+import { SecurityAlertService } from './security-alerts';
 
 const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
 
@@ -141,6 +143,11 @@ export class LoginAttemptLimiter {
         ip_address: ip_address || 'unknown',
         attempts: failedAttempts
       });
+
+      // Check if IP should be blacklisted (10+ attempts)
+      if (failedAttempts >= 10 && ip_address) {
+        await this.handleIPBlacklisting(ip_address, failedAttempts, email);
+      }
 
       return {
         allowed: false,
@@ -319,5 +326,131 @@ export class LoginAttemptLimiter {
       locked_until: { $lt: new Date() },
       is_active: false
     });
+  }
+
+  /**
+   * Handle IP blacklisting after 10+ failed attempts
+   */
+  private async handleIPBlacklisting(ip_address: string, attemptCount: number, email?: string): Promise<void> {
+    try {
+      const ipBlacklistService = IPBlacklistService.getInstance();
+      const securityAlertService = SecurityAlertService.getInstance();
+
+      // Check if IP is already blacklisted
+      const blacklistResult = await ipBlacklistService.isIPBlacklisted(ip_address);
+      
+      if (!blacklistResult.isBlocked) {
+        // Add IP to blacklist
+        await ipBlacklistService.addToBlacklist({
+          ip_address,
+          reason: 'brute_force',
+          severity: attemptCount >= 15 ? 'critical' : 'high',
+          description: `Automatically blacklisted after ${attemptCount} failed login attempts${email ? ` for user ${email}` : ''}`,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+        });
+
+        console.log(`🚫 IP ${ip_address} automatically blacklisted after ${attemptCount} failed attempts`);
+      }
+
+      // Create security alert
+      securityAlertService.createIPBlacklistAlert({
+        ip_address,
+        reason: `Brute force attack - ${attemptCount} failed attempts${email ? ` targeting user ${email}` : ''}`,
+        severity: attemptCount >= 15 ? 'critical' : 'high'
+      });
+
+      // Also create failed login alert
+      securityAlertService.createFailedLoginAlert({
+        ip_address,
+        attempt_count: attemptCount,
+        email
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to handle IP blacklisting:', error);
+    }
+  }
+
+  /**
+   * Enhanced recordLoginAttempt with security alerts
+   */
+  async recordLoginAttemptWithAlerts(data: {
+    user_id?: ObjectId;
+    email?: string;
+    ip_address: string;
+    user_agent: string;
+    success: boolean;
+    failure_reason?: string;
+    device_fingerprint?: string;
+  }): Promise<void> {
+    // Record the attempt
+    await this.recordLoginAttempt(data);
+
+    // Create security alerts for failed attempts
+    if (!data.success) {
+      const securityAlertService = SecurityAlertService.getInstance();
+      
+      // Count recent failed attempts for this IP
+      const client = await clientPromise;
+      if (client) {
+        const attemptsCollection = client.db(DB_NAME).collection<LoginAttempt>('login_attempts');
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        
+        const failedAttempts = await attemptsCollection.countDocuments({
+          ip_address: data.ip_address,
+          success: false,
+          created_at: { $gte: oneHourAgo }
+        });
+
+        // Create alert for multiple failed attempts
+        if (failedAttempts >= 3) {
+          securityAlertService.createFailedLoginAlert({
+            ip_address: data.ip_address,
+            attempt_count: failedAttempts,
+            user_agent: data.user_agent,
+            email: data.email
+          });
+        }
+
+        // Create account lockout alert if applicable
+        if (failedAttempts >= 5) {
+          const lockoutCollection = client.db(DB_NAME).collection<AccountLockout>('account_lockouts');
+          const activeLockout = await lockoutCollection.findOne({
+            ip_address: data.ip_address,
+            locked_until: { $gt: new Date() },
+            is_active: true
+          });
+
+          if (activeLockout) {
+            const lockoutDuration = this.formatLockoutDuration(activeLockout.locked_until);
+            securityAlertService.createAccountLockoutAlert({
+              email: data.email,
+              ip_address: data.ip_address,
+              lockout_duration: lockoutDuration,
+              attempt_count: failedAttempts
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Format lockout duration for display
+   */
+  private formatLockoutDuration(lockedUntil: Date): string {
+    const now = new Date();
+    const diffMs = lockedUntil.getTime() - now.getTime();
+    const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minutes`;
+    } else if (diffMinutes < 1440) {
+      const hours = Math.ceil(diffMinutes / 60);
+      return `${hours} hour${hours > 1 ? 's' : ''}`;
+    } else {
+      const days = Math.ceil(diffMinutes / 1440);
+      return `${days} day${days > 1 ? 's' : ''}`;
+    }
   }
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { BloodNodeCrypto } from '@/lib/crypto/client';
 import { RecoveryModal } from './recovery-modal';
+import { LoginSecurityAlerts } from './login-security-alerts';
 
 interface LoginFormProps {
   onSuccess: (data: any) => void;
@@ -18,6 +19,9 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
   });
   const [loading, setLoading] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  // Show alert only after a failed login attempt (401) for this email
+  const [failedEmail, setFailedEmail] = useState<string | null>(null);
+  const [showLoginAlert, setShowLoginAlert] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +44,11 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
       const result = await response.json();
 
       if (!response.ok) {
+        // Only trigger user-facing login alert on explicit auth failure (401)
+        if (response.status === 401) {
+          setFailedEmail(formData.email);
+          setShowLoginAlert(true);
+        }
         throw new Error(result.error || 'Login failed');
       }
 
@@ -57,6 +66,12 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
         deviceId: result.device_id
       });
 
+      // Successful login should clear any prior alert and failed email
+      if (showLoginAlert || failedEmail) {
+        setShowLoginAlert(false);
+        setFailedEmail(null);
+      }
+
     } catch (error: any) {
       onError(error.message || 'Login failed');
     } finally {
@@ -67,6 +82,11 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
   return (
     <div className="max-w-md mx-auto p-6 bg-black rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center text-white">Login to Blood Node</h2>
+      
+      {/* User-specific security alert: only after a failed attempt */}
+      {showLoginAlert && failedEmail && (
+        <LoginSecurityAlerts userEmail={failedEmail} />
+      )}
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

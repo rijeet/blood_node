@@ -13,7 +13,7 @@ import { DonationRecordButton } from './donation-record-button';
 import { LocationPickerModal } from './location-picker-modal';
 import { LocationUpdateModal } from './location-update-modal';
 import { DeleteAccountModal } from './delete-account-modal';
-import { PasswordUpdateForm } from './password-update-form';
+import { PasswordUpdateModal } from './password-update-form';
 
 interface UserProfile {
   id: string;
@@ -60,6 +60,7 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showLocationUpdateModal, setShowLocationUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   // Donation record form state
   const [showDonationRecordModal, setShowDonationRecordModal] = useState(false);
@@ -689,10 +690,22 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
 
       {/* Password Update Section */}
       <div className="max-w-2xl mx-auto">
-        <PasswordUpdateForm
-          onSuccess={onSuccess}
-          onError={onError}
-        />
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Password & Security</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Update your account password for better security
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowPasswordModal(true)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Change Password
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* Danger Zone - Delete Account */}
@@ -781,6 +794,14 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
         onConfirm={handleDeleteAccount}
         userCode={profile?.user_code || ''}
         userName={profile?.name}
+      />
+
+      {/* Password Update Modal */}
+      <PasswordUpdateModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={onSuccess}
+        onError={onError}
       />
     </div>
   );

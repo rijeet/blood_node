@@ -3,31 +3,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { findUserById, updateUserPassword } from '@/lib/db/users';
-import { verifyPassword, hashPassword } from '@/lib/auth/jwt';
-import { sendEmail } from '@/lib/email/service';
-import { createPasswordChangeEmailTemplate } from '@/lib/email/templates';
+import { sendPasswordChangeNotification } from '@/lib/email/notification-service';
 
 // Update user password
 export async function PUT(request: NextRequest) {
   try {
+    console.log('🔐 Password update API called');
+    
+    // Check authorization header
+    const authHeader = request.headers.get('authorization');
+    console.log('🔑 Auth header present:', !!authHeader);
+    
     const user = authenticateRequest(request);
     if (!user) {
+      console.log('❌ Authentication failed');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    console.log('✅ User authenticated:', user.sub);
 
+    console.log('📝 Parsing request body...');
     const body = await request.json();
     const { currentPassword, newPassword, confirmPassword } = body;
+    console.log('📝 Request body parsed successfully');
 
     // Validate input
+    console.log('🔍 Validating input...');
     if (!currentPassword || !newPassword || !confirmPassword) {
+      console.log('❌ Missing required fields');
       return NextResponse.json(
         { error: 'Current password, new password, and confirm password are required' },
         { status: 400 }
       );
     }
+    console.log('✅ Input validation passed');
 
     // Validate password confirmation
     if (newPassword !== confirmPassword) {
@@ -54,62 +66,69 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get user record
+    console.log('👤 Looking up user record...');
     const userRecord = await findUserById(user.sub);
     if (!userRecord) {
+      console.log('❌ User not found in database');
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
+    console.log('✅ User record found');
 
-    // Verify current password
-    const isCurrentPasswordValid = await verifyPassword(currentPassword, userRecord.password_hash);
-    if (!isCurrentPasswordValid) {
+    // Verify current password using the same method as login
+    console.log('🔐 Verifying current password...');
+    const crypto = new (await import('@/lib/crypto/client')).BloodNodeCrypto();
+    const hashedCurrentPassword = await crypto.hashPassword(currentPassword);
+    console.log('🔑 Stored hash:', userRecord.password_hash);
+    console.log('🔑 Computed hash:', hashedCurrentPassword);
+    console.log('🔑 Match:', userRecord.password_hash === hashedCurrentPassword);
+    
+    if (userRecord.password_hash !== hashedCurrentPassword) {
+      console.log('❌ Current password is incorrect');
       return NextResponse.json(
         { error: 'Current password is incorrect' },
         { status: 401 }
       );
     }
+    console.log('✅ Current password verified');
 
-    // Hash new password
-    const newPasswordHash = await hashPassword(newPassword);
+    // Hash new password using the same method
+    console.log('🔐 Hashing new password...');
+    const newPasswordHash = await crypto.hashPassword(newPassword);
+    console.log('✅ New password hashed');
 
     // Update password in database
     await updateUserPassword(user.sub, newPasswordHash);
 
     // Send password change notification email
-    try {
-      const emailTemplate = createPasswordChangeEmailTemplate({
-        title: 'Password Changed Successfully',
+    const notificationResult = await sendPasswordChangeNotification(
+      {
+        userCode: userRecord.user_code,
+        emailHash: userRecord.email_hash,
+        name: userRecord.name
+      },
+      {
         userCode: userRecord.user_code,
         changeTime: new Date().toLocaleString(),
         ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
-      });
+      }
+    );
 
-      // Note: In a real implementation, we would need to decrypt the email from email_hash
-      // For now, we'll use a placeholder email since we don't store plaintext emails
-      const placeholderEmail = `user-${userRecord.user_code}@bloodnode.example`;
-      
-      await sendEmail({
-        to: placeholderEmail,
-        subject: '🔒 Password Changed - Blood Node',
-        html: emailTemplate,
-        from: 'Blood Node <onboarding@resend.dev>'
-      });
-
-      console.log('✅ Password change notification email sent');
-    } catch (emailError) {
-      console.error('❌ Failed to send password change notification email:', emailError);
+    if (!notificationResult.success) {
+      console.error('❌ Failed to send password change notification:', notificationResult.error);
       // Don't fail the password update if email fails
     }
 
+    console.log('✅ Password update completed successfully');
     return NextResponse.json({
       success: true,
       message: 'Password updated successfully'
     });
 
   } catch (error) {
-    console.error('Password update error:', error);
+    console.error('❌ Password update error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
