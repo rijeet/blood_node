@@ -95,6 +95,16 @@ export const COLLECTIONS: CollectionInfo[] = [
     ]
   },
   {
+    name: 'emergency_responses',
+    indexes: [
+      { key: { emergency_alert_id: 1 } },
+      { key: { responder_user_id: 1 } },
+      { key: { status: 1 } },
+      { key: { created_at: 1 } },
+      { key: { emergency_alert_id: 1, responder_user_id: 1 }, options: { unique: true } }
+    ]
+  },
+  {
     name: 'donation_records',
     indexes: [
       { key: { record_id: 1 }, options: { unique: true } },

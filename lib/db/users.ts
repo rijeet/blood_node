@@ -285,6 +285,25 @@ export async function updateUserLastDonationDate(
 }
 
 /**
+ * Update user password
+ */
+export async function updateUserPassword(
+  userId: string,
+  newPasswordHash: string
+): Promise<void> {
+  const collection = await getUsersCollection();
+  await collection.updateOne(
+    { _id: new ObjectId(userId) },
+    { 
+      $set: { 
+        password_hash: newPasswordHash,
+        updated_at: new Date() 
+      } 
+    }
+  );
+}
+
+/**
  * Check if user code exists
  */
 export async function userCodeExists(userCode: string): Promise<boolean> {

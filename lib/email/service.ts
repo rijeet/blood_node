@@ -7,6 +7,7 @@ import {
   createRecoveryCodeEmailTemplate,
   createFamilyInviteEmailTemplate,
   createWelcomeEmailTemplate,
+  createPasswordChangeEmailTemplate,
   EmailTemplateData
 } from './templates';
 

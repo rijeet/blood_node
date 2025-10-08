@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { LocationPicker } from '@/components/location/location-picker';
+import { notificationStorage } from '@/lib/services/notification-storage';
 
 interface EmergencyAlertProps {
   onAlertSent?: (alert: any) => void;
@@ -165,7 +166,10 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
         });
 
       if (data.success) {
-        setSuccess(`Emergency alert sent successfully! ${data.donors_notified} donors notified.`);
+        // Store notification persistently
+        notificationStorage.addEmergencyAlertNotification(data.alert_id, data.donors_notified);
+        
+        setSuccess(`Emergency alert sent successfully! ${data.donors_notified} donors notified. Alert ID: ${data.alert_id}. You can manage responses and select donors from the management page.`);
         onAlertSent?.(data);
         // Reset form
         setBloodType('');
@@ -568,9 +572,26 @@ export function EmergencyAlert({ onAlertSent, className }: EmergencyAlertProps) 
 
         {/* Success Display */}
         {success && (
-          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-md text-green-700">
-            <Heart className="h-4 w-4" />
-            <span className="text-sm">{success}</span>
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Heart className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-semibold text-green-700">{success}</span>
+            </div>
+            <Button
+              onClick={() => {
+                // Extract alert ID from the success message or use the last created alert
+                const alertId = success.includes('alert_id') ? 
+                  success.match(/alert_id: ([a-f0-9]+)/)?.[1] : 
+                  null;
+                if (alertId) {
+                  window.open(`/emergency/manage/${alertId}`, '_blank');
+                }
+              }}
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Manage Responses
+            </Button>
           </div>
         )}
 

@@ -13,6 +13,7 @@ import { DonationRecordButton } from './donation-record-button';
 import { LocationPickerModal } from './location-picker-modal';
 import { LocationUpdateModal } from './location-update-modal';
 import { DeleteAccountModal } from './delete-account-modal';
+import { PasswordUpdateForm } from './password-update-form';
 
 interface UserProfile {
   id: string;
@@ -685,6 +686,14 @@ export function ProfileForm({ onSuccess, onError, loadOnMount = true }: ProfileF
           </Card>
         </div>
       )}
+
+      {/* Password Update Section */}
+      <div className="max-w-2xl mx-auto">
+        <PasswordUpdateForm
+          onSuccess={onSuccess}
+          onError={onError}
+        />
+      </div>
 
       {/* Danger Zone - Delete Account */}
       {profile && (

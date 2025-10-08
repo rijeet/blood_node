@@ -26,10 +26,11 @@ export interface EmergencyAlert {
   reference?: string; // Doctor/case reference
   
   // Alert status
-  status: 'active' | 'fulfilled' | 'cancelled' | 'expired';
+  status: 'active' | 'in_progress' | 'fulfilled' | 'cancelled' | 'expired';
   donors_notified: number; // Number of donors who received the alert
   donors_responded: number; // Number of donors who responded
   selected_donor_id?: ObjectId; // ID of the donor who was selected
+  selected_response_id?: ObjectId; // ID of the response that was selected
   
   // Timestamps
   created_at: Date;

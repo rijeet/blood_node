@@ -37,6 +37,12 @@ export interface WelcomeEmailData extends EmailTemplateData {
   userCode: string;
 }
 
+export interface PasswordChangeEmailData extends EmailTemplateData {
+  userCode: string;
+  changeTime: string;
+  ipAddress: string;
+}
+
 /**
  * Create email verification template
  */
@@ -387,6 +393,75 @@ export function createWelcomeEmailTemplate(data: WelcomeEmailData): string {
           </div>
           
           <p>Need help getting started? Check out our documentation or contact support.</p>
+        </div>
+        <div class="footer">
+          <p>This email was sent by Blood Node - Secure Family Blood Network</p>
+          <p>© 2024 Blood Node. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Create password change notification email template
+ */
+export function createPasswordChangeEmailTemplate(data: PasswordChangeEmailData): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background:rgb(0, 0, 0); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+        .success { background: #d1fae5; border: 1px solid #10b981; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .info-box { background: #e0f2fe; border: 1px solid #0ea5e9; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .user-code { background: #1f2937; color: #f9fafb; padding: 10px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 2px; border-radius: 6px; margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🩸 Blood Node</h1>
+          <h2>${data.title}</h2>
+        </div>
+        <div class="content">
+          <div class="success">
+            <p style="margin: 0; color: #065f46;"><strong>✅ Password Successfully Changed</strong></p>
+            <p style="margin: 5px 0 0 0; color: #065f46;">Your Blood Node account password has been updated successfully.</p>
+          </div>
+          
+          <p>This is a security notification to inform you that your password was changed on your Blood Node account.</p>
+          
+          <div class="info-box">
+            <h3 style="margin: 0 0 10px 0; color: #0c4a6e;">Account Details:</h3>
+            <p style="margin: 5px 0;"><strong>User Code:</strong></p>
+            <div class="user-code">${data.userCode}</div>
+            <p style="margin: 5px 0;"><strong>Change Time:</strong> ${data.changeTime}</p>
+            <p style="margin: 5px 0;"><strong>IP Address:</strong> ${data.ipAddress}</p>
+          </div>
+          
+          <div class="warning">
+            <p style="margin: 0; color: #92400e;"><strong>🔒 Security Notice:</strong> If you did not make this change, please contact our support team immediately. Your account may have been compromised.</p>
+          </div>
+          
+          <p><strong>What to do next:</strong></p>
+          <ul>
+            <li>If you made this change, no further action is required</li>
+            <li>If you did not make this change, contact support immediately</li>
+            <li>Consider enabling two-factor authentication for added security</li>
+            <li>Review your account activity for any suspicious behavior</li>
+          </ul>
+          
+          <p>For security reasons, we recommend using a strong, unique password that you don't use for other accounts.</p>
         </div>
         <div class="footer">
           <p>This email was sent by Blood Node - Secure Family Blood Network</p>

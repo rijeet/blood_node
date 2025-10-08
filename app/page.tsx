@@ -10,6 +10,7 @@ import { RelativeForm } from "@/components/relatives/relative-form";
 import { BloodGroupGrid } from "@/components/family/blood-group-grid";
 import { FamilyInviteModalAdvanced } from "@/components/family/family-invite-modal-advanced";
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
+import { PersistentNotificationPanel } from "@/components/notifications/persistent-notification-panel";
 import LandingPage from "./landing/page";
 
 interface User {
@@ -194,6 +195,7 @@ export default function Home() {
             <div className="flex justify-between items-center py-4">
               <h1 className="text-2xl font-bold text-white">Blood Node</h1>
               <div className="flex items-center space-x-4">
+                <PersistentNotificationPanel />
                 <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800">
                   Plan: {currentUser.plan}
                 </Badge>

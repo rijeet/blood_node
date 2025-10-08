@@ -123,7 +123,8 @@ export async function updateEmergencyAlertStatus(
   status: EmergencyAlert['status'],
   donorsNotified?: number,
   donorsResponded?: number,
-  selectedDonorId?: ObjectId
+  selectedDonorId?: ObjectId,
+  selectedResponseId?: ObjectId
 ): Promise<boolean> {
   const client = await clientPromise;
   if (!client) {
@@ -147,6 +148,10 @@ export async function updateEmergencyAlertStatus(
 
   if (selectedDonorId !== undefined) {
     updateData.selected_donor_id = selectedDonorId;
+  }
+
+  if (selectedResponseId !== undefined) {
+    updateData.selected_response_id = selectedResponseId;
   }
 
   const result = await collection.updateOne(

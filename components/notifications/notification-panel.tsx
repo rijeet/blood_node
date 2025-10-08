@@ -181,32 +181,36 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
+    <Card className={`bg-gradient-to-br from-white to-gray-50 shadow-2xl border-2 border-gray-200 rounded-2xl ${className}`}>
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl border-b-2 border-gray-200">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notifications
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {unreadCount}
-              </Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+              <Bell className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                Notifications
+                {unreadCount > 0 && (
+                  <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 text-lg font-bold rounded-full shadow-lg">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription className="text-lg text-gray-600 mt-1">
+                Stay updated with nearby emergency alerts and important notifications
+              </CardDescription>
+            </div>
+          </div>
           {unreadCount > 0 && (
             <Button
-              variant="outline"
-              size="sm"
               onClick={markAllAsRead}
-              className="text-xs"
+              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               Mark all read
             </Button>
           )}
         </div>
-        <CardDescription>
-          Stay updated with nearby emergency alerts and important notifications
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
@@ -216,96 +220,93 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
         )}
 
         {notifications.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No notifications yet</p>
-            <p className="text-sm">You'll see emergency alerts and updates here</p>
+          <div className="text-center py-12">
+            <div className="w-20 h-20 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Bell className="h-10 w-10 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-700 mb-2">No notifications yet</h3>
+            <p className="text-lg text-gray-500">You'll see emergency alerts and updates here</p>
           </div>
         ) : (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-4 max-h-96 overflow-y-auto">
             {notifications.map((notification) => (
               <div
                 key={notification._id}
-                className={`p-4 rounded-lg border transition-all duration-200 ${
+                className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg ${
                   notification.read 
-                    ? 'bg-gray-50 border-gray-200' 
-                    : 'bg-white border-blue-200 shadow-sm'
+                    ? 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200' 
+                    : 'bg-gradient-to-r from-white to-blue-50 border-blue-300 shadow-lg'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1">
-                    {getTypeIcon(notification.type)}
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 mt-2">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                      {getTypeIcon(notification.type)}
+                    </div>
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className={`text-sm font-medium ${
-                        notification.read ? 'text-gray-600' : 'text-gray-900'
+                    <div className="flex items-center gap-3 mb-3">
+                      <h4 className={`text-lg font-bold ${
+                        notification.read ? 'text-gray-600' : 'text-gray-800'
                       }`}>
                         {notification.title}
                       </h4>
                       {notification.urgency_level && (
                         <Badge 
-                          variant="outline" 
-                          className={`text-xs ${getUrgencyColor(notification.urgency_level)}`}
+                          className={`px-4 py-2 text-sm font-bold rounded-full shadow-lg ${getUrgencyColor(notification.urgency_level)}`}
                         >
-                          {getUrgencyIcon(notification.urgency_level)} {notification.urgency_level}
+                          {getUrgencyIcon(notification.urgency_level)} {notification.urgency_level.toUpperCase()}
                         </Badge>
                       )}
                     </div>
                     
-                    <p className={`text-sm ${
-                      notification.read ? 'text-gray-500' : 'text-gray-700'
+                    <p className={`text-lg leading-relaxed ${
+                      notification.read ? 'text-gray-600' : 'text-gray-700'
                     }`}>
                       {notification.message}
                     </p>
                     
                     {(notification.location_address || notification.distance_km) && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-                        <MapPin className="h-3 w-3" />
-                        <span>
+                      <div className="flex items-center gap-2 mt-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-3 border-2 border-purple-200">
+                        <MapPin className="h-5 w-5 text-purple-600" />
+                        <span className="text-lg font-semibold text-purple-700">
                           {notification.location_address}
                           {notification.distance_km && ` • ${notification.distance_km.toFixed(1)}km away`}
                         </span>
                       </div>
                     )}
                     
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-gray-400">
+                    <div className="flex items-center justify-between mt-6">
+                      <span className="text-lg font-semibold text-gray-500 bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-2 rounded-xl">
                         {formatTimeAgo(notification.created_at)}
                       </span>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {notification.action_url && (
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-7"
                             onClick={() => window.open(notification.action_url, '_blank')}
+                            className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                           >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            {notification.action_button_text || 'View'}
+                            <ExternalLink className="h-5 w-5 mr-2" />
+                            {notification.action_button_text || 'Respond to Alert'}
                           </Button>
                         )}
                         
                         {!notification.read && (
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
                             onClick={() => markAsRead(notification._id)}
+                            className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                           >
-                            <Check className="h-3 w-3" />
+                            <Check className="h-5 w-5" />
                           </Button>
                         )}
                         
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7 text-gray-400 hover:text-red-500"
                           onClick={() => deleteNotification(notification._id)}
+                          className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-5 w-5" />
                         </Button>
                       </div>
                     </div>
