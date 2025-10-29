@@ -3,7 +3,11 @@
 /**
  * Create admin user script - Simple version
  * 
- * Usage: node scripts/create-admin-simple.js
+ * Usage:
+ *   - Single user (CLI args override env):
+ *       node scripts/create-admin-simple.js --email you@example.com --password secret --role admin
+ *   - Seed default admin, moderator, analyst:
+ *       node scripts/create-admin-simple.js --seed-defaults
  */
 
 const { MongoClient, ObjectId } = require('mongodb');
@@ -12,7 +16,7 @@ const crypto = require('crypto');
 
 // Database connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const DB_NAME = process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node';
+const DB_NAME = ((process.env.MONGODB_DATABASE || process.env.DB_NAME || 'blood_node') + '').trim();
 
 // Hash email function
 function hashEmail(email) {
@@ -76,12 +80,25 @@ async function createAdmin() {
   let client;
   
   try {
-    console.log('🔧 Creating admin user...');
+    // Parse CLI args
+    const args = process.argv.slice(2);
+    const argMap = args.reduce((acc, cur, idx) => {
+      if (cur.startsWith('--')) {
+        const key = cur.replace(/^--/, '');
+        const value = args[idx + 1] && !args[idx + 1].startsWith('--') ? args[idx + 1] : true;
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+
+    const isSeedDefaults = Boolean(argMap['seed-defaults']);
+
+    console.log(isSeedDefaults ? '🌱 Seeding default admin users...' : '🔧 Creating admin user...');
     
-    // Get admin details from environment
-    const email = process.env.ADMIN_EMAIL || 'admin@bloodnode.com';
-    const password = process.env.ADMIN_PASSWORD || 'admin123456';
-    const role = process.env.ADMIN_ROLE || 'super_admin';
+    // Get user details from CLI args or environment
+    const email = (argMap.email && String(argMap.email)) || process.env.ADMIN_EMAIL || 'admin@bloodnode.com';
+    const password = (argMap.password && String(argMap.password)) || process.env.ADMIN_PASSWORD || 'admin123456';
+    const role = (argMap.role && String(argMap.role)) || process.env.ADMIN_ROLE || 'super_admin';
     
     console.log('📧 Email:', email);
     console.log('👤 Role:', role);
@@ -94,47 +111,50 @@ async function createAdmin() {
     const db = client.db(DB_NAME);
     const adminUsersCollection = db.collection('admin_users');
     
-    // Check if admin already exists
-    const existingAdmin = await adminUsersCollection.findOne({ email });
-    if (existingAdmin) {
-      console.log('⚠️  Admin user already exists with this email');
-      return;
+    async function createOne({ email, password, role }) {
+      // Check if user already exists
+      const existing = await adminUsersCollection.findOne({ email });
+      if (existing) {
+        console.log(`⚠️  User already exists: ${email} (${role})`);
+        return existing._id;
+      }
+
+      const emailHash = hashEmail(email);
+      const passwordHash = await hashPassword(password);
+      const permissions = getDefaultPermissionsForRole(role);
+
+      const adminUser = {
+        email,
+        email_hash: emailHash,
+        password_hash: passwordHash,
+        role,
+        permissions,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      const result = await adminUsersCollection.insertOne(adminUser);
+      console.log(`✅ Created: ${email} (${role})  id=${result.insertedId}`);
+      return result.insertedId;
     }
-    
-    // Hash email and password
-    const emailHash = hashEmail(email);
-    const passwordHash = await hashPassword(password);
-    
-    // Get permissions for role
-    const permissions = getDefaultPermissionsForRole(role);
-    
-    // Create admin user
-    const adminUser = {
-      email,
-      email_hash: emailHash,
-      password_hash: passwordHash,
-      role,
-      permissions,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    
-    const result = await adminUsersCollection.insertOne(adminUser);
-    
-    console.log('✅ Admin user created successfully!');
-    console.log('🆔 Admin ID:', result.insertedId);
-    console.log('📧 Email:', email);
-    console.log('👤 Role:', role);
-    console.log('🔐 Permissions:', permissions.length, 'permission sets');
-    console.log('');
-    console.log('🔐 Default credentials:');
-    console.log('   Email:', email);
-    console.log('   Password:', password);
-    console.log('');
-    console.log('⚠️  Please change the password after first login!');
-    console.log('');
-    console.log('🌐 Access admin dashboard at: http://localhost:3000/admin/login');
+
+    if (isSeedDefaults) {
+      const defaultPassword = typeof argMap.password === 'string' ? String(argMap.password) : 'admin123456';
+      await createOne({ email: 'admin@bloodnode.com', role: 'super_admin', password: defaultPassword });
+      await createOne({ email: 'moderator@bloodnode.com', role: 'moderator', password: defaultPassword });
+      await createOne({ email: 'analyst@bloodnode.com', role: 'analyst', password: defaultPassword });
+      console.log('🌐 Access admin dashboard at: http://localhost:3000/admin/login');
+      console.log('🔑 Default password (change after login):', defaultPassword);
+    } else {
+      await createOne({ email, password, role });
+      console.log('');
+      console.log('🔐 Credentials:');
+      console.log('   Email:', email);
+      console.log('   Password:', password);
+      console.log('');
+      console.log('🌐 Access admin dashboard at: http://localhost:3000/admin/login');
+    }
     
   } catch (error) {
     console.error('❌ Error creating admin user:', error);

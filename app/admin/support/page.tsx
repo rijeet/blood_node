@@ -45,7 +45,7 @@ export default function AdminSupportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filters, setFilters] = useState({
-    status: '',
+    status: 'all',
     search: '',
     page: 1
   });
@@ -65,7 +65,7 @@ export default function AdminSupportPage() {
       }
 
       const params = new URLSearchParams();
-      if (filters.status) params.append('status', filters.status);
+      if (filters.status && filters.status !== 'all') params.append('status', filters.status);
       if (filters.search) params.append('search', filters.search);
       params.append('page', filters.page.toString());
       params.append('limit', '20');
@@ -288,7 +288,7 @@ export default function AdminSupportPage() {
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-600">
-                        <SelectItem value="" className="text-white hover:bg-gray-700">All Status</SelectItem>
+                        <SelectItem value="all" className="text-white hover:bg-gray-700">All Status</SelectItem>
                         <SelectItem value="open" className="text-white hover:bg-gray-700">Open</SelectItem>
                         <SelectItem value="replied" className="text-white hover:bg-gray-700">Replied</SelectItem>
                         <SelectItem value="closed" className="text-white hover:bg-gray-700">Closed</SelectItem>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import {
   Droplets, 
   Shield, 
   Clock, 
+  Calendar,
   CheckCircle,
   Search,
   ArrowRight,
@@ -45,6 +46,25 @@ export default function LandingPage() {
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [blogLoading, setBlogLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        setBlogLoading(true);
+        const response = await fetch('/api/blog/posts?limit=2');
+        if (!response.ok) return;
+        const data = await response.json();
+        setBlogPosts(data.data || []);
+      } catch (e) {
+        // ignore on landing
+      } finally {
+        setBlogLoading(false);
+      }
+    };
+    fetchBlogs();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -647,43 +667,66 @@ export default function LandingPage() {
             <p className="text-xl text-gray-600">Stay updated with blood donation news and health tips</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-              <div className="h-48 bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
-                <Droplets className="h-16 w-16 text-red-600" />
-              </div>
-              <div className="p-6">
-                <div className="text-sm text-gray-500 mb-2">December 15, 2024</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">The Importance of Blood Type Compatibility</h3>
-                <p className="text-gray-600 mb-4">Understanding how different blood types work together can save lives during emergencies.</p>
-                <Link href="#" className="text-red-600 hover:text-red-700 font-medium">Read more →</Link>
-              </div>
-            </article>
+          {blogLoading ? (
+            <div className="text-center text-gray-500">Loading posts...</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {(blogPosts.length ? blogPosts : []).map((post) => {
+                const publishedDate = post.published_at 
+                  ? new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : '';
+                return (
+                  <Link key={post._id} href={`/blog/${post.slug}`} className="group">
+                    <article className="bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col transform hover:-translate-y-1">
+                      {/* Image */}
+                      {post.featured_image ? (
+                        <div className="relative h-52 overflow-hidden">
+                          <img src={post.featured_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                        </div>
+                      ) : (
+                        <div className="h-52 bg-gradient-to-br from-red-100 via-pink-100 to-red-200 flex items-center justify-center">
+                          <Droplets className="h-16 w-16 text-red-400" />
+                        </div>
+                      )}
 
-            <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-              <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                <Shield className="h-16 w-16 text-blue-600" />
-              </div>
-              <div className="p-6">
-                <div className="text-sm text-gray-500 mb-2">December 10, 2024</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Privacy in Healthcare: Why It Matters</h3>
-                <p className="text-gray-600 mb-4">How end-to-end encryption protects your sensitive health information in the digital age.</p>
-                <Link href="#" className="text-red-600 hover:text-red-700 font-medium">Read more →</Link>
-              </div>
-            </article>
+                      {/* Content */}
+                      <div className="p-6 flex flex-col flex-grow">
+                        {post.category && (
+                          <div className="mb-3">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                              {post.category}
+                            </span>
+                          </div>
+                        )}
 
-            <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-              <div className="h-48 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
-                <Heart className="h-16 w-16 text-green-600" />
-              </div>
-              <div className="p-6">
-                <div className="text-sm text-gray-500 mb-2">December 5, 2024</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Building a Global Blood Donation Network</h3>
-                <p className="text-gray-600 mb-4">How technology is connecting donors and recipients across the world.</p>
-                <Link href="#" className="text-red-600 hover:text-red-700 font-medium">Read more →</Link>
-              </div>
-            </article>
-          </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                          <Calendar className="h-4 w-4" />
+                          <time>{publishedDate}</time>
+                          <span className="mx-2">•</span>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            <span>{post.reading_time || 2} min read</span>
+                          </div>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-red-600 transition-colors line-clamp-2">{post.title}</h3>
+                        <p className="text-gray-600 mb-4 flex-grow line-clamp-3">{post.excerpt}</p>
+
+                        <div className="flex items-center text-red-600 font-semibold group-hover:gap-2 transition-all">
+                          <span>Read more</span>
+                          <ArrowRight className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                );
+              })}
+              {!blogPosts.length && (
+                <div className="col-span-1 md:col-span-2 text-center text-gray-500">No posts available yet.</div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
