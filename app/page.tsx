@@ -12,6 +12,8 @@ import { FamilyInviteModalAdvanced } from "@/components/family/family-invite-mod
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { PersistentNotificationPanel } from "@/components/notifications/persistent-notification-panel";
 import LandingPage from "./landing/page";
+import { useDonationModal } from "@/lib/contexts/donation-modal-context";
+import ThemeToggle from "@/components/theme/theme-toggle";
 
 interface User {
   id: string;
@@ -23,6 +25,7 @@ interface User {
 }
 
 export default function Home() {
+  const { open: openDonation } = useDonationModal();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<'landing' | 'signup' | 'login' | 'dashboard' | 'verification'>('landing');
   const [showLanding, setShowLanding] = useState(true);
@@ -124,6 +127,16 @@ export default function Home() {
     }
   }, [currentView]);
 
+  useEffect(() => {
+    if (currentView === 'dashboard') {
+      const shown = typeof window !== 'undefined' ? sessionStorage.getItem('donation_prompt_shown') : '1';
+      if (!shown) {
+        try { sessionStorage.setItem('donation_prompt_shown', '1'); } catch {}
+        openDonation();
+      }
+    }
+  }, [currentView]);
+
   const handleSignupSuccess = (userData: any) => {
     setSuccess('Account created successfully! Please verify your email to complete registration.');
     setCurrentView('verification');
@@ -189,20 +202,22 @@ export default function Home() {
 
   if (currentView === 'dashboard' && currentUser) {
     return (
-      <div className="min-h-screen bg-black">
-        <header className="bg-gray-900 shadow-sm border-b border-gray-700">
+      <div className="min-h-screen bg-background text-foreground">
+        <header className="bg-card shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
-              <h1 className="text-2xl font-bold text-white">Blood Node</h1>
+              <h1 className="text-2xl font-bold">Blood Node</h1>
               <div className="flex items-center space-x-4">
                 <PersistentNotificationPanel />
-                <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800">
+                <ThemeToggle />
+                <Button variant="secondary" onClick={() => openDonation()}>Donate</Button>
+                <Badge variant="outline">
                   Plan: {currentUser.plan}
                 </Badge>
-                <Badge variant="outline" className="border-gray-600 text-gray-300 bg-gray-800">
+                <Badge variant="outline">
                   Code: {currentUser.user_code}
                 </Badge>
-                <Button variant="outline" onClick={handleLogout} className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white">
+                <Button variant="outline" onClick={handleLogout}>
                   Logout
                 </Button>
               </div>
@@ -212,7 +227,7 @@ export default function Home() {
 
         {error && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded">
+            <div className="bg-destructive/20 border border-destructive text-destructive-foreground px-4 py-3 rounded">
               {error}
             </div>
           </div>
@@ -220,7 +235,7 @@ export default function Home() {
 
         {success && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded">
+            <div className="bg-secondary/20 border border-secondary text-foreground px-4 py-3 rounded">
               {success}
             </div>
           </div>
@@ -235,28 +250,28 @@ export default function Home() {
         </main>
 
         {/* Dashboard Footer */}
-        <footer className="bg-gray-900 border-t border-gray-700 mt-12">
+        <footer className="bg-card border-t mt-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-              <div className="text-gray-400 text-sm">
+              <div className="text-muted-foreground text-sm">
                 © 2024 Blood Node. All rights reserved.
               </div>
               <div className="flex space-x-6">
                 <Link 
                   href="/support" 
-                  className="text-gray-400 hover:text-white text-sm transition-colors duration-200"
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200"
                 >
                   Support
                 </Link>
                 <Link 
                   href="/privacy" 
-                  className="text-gray-400 hover:text-white text-sm transition-colors duration-200"
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200"
                 >
                   Privacy
                 </Link>
                 <Link 
                   href="/terms" 
-                  className="text-gray-400 hover:text-white text-sm transition-colors duration-200"
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200"
                 >
                   Terms
                 </Link>
@@ -270,14 +285,14 @@ export default function Home() {
 
   if (currentView === 'signup') {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         {error && (
-          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-destructive/20 border border-destructive text-destructive-foreground px-4 py-3 rounded z-50">
             {error}
           </div>
         )}
         {success && (
-          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-secondary/20 border border-secondary text-foreground px-4 py-3 rounded z-50">
             {success}
           </div>
         )}
@@ -288,7 +303,7 @@ export default function Home() {
           />
           <div className="text-center mt-4">
             <button 
-              className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              className="text-primary hover:underline transition-colors"
               onClick={() => setCurrentView('login')}
             >
               Already have an account? Login
@@ -301,14 +316,14 @@ export default function Home() {
 
   if (currentView === 'login') {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         {error && (
-          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-destructive/20 border border-destructive text-destructive-foreground px-4 py-3 rounded z-50">
             {error}
           </div>
         )}
         {success && (
-          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-secondary/20 border border-secondary text-foreground px-4 py-3 rounded z-50">
             {success}
           </div>
         )}
@@ -319,7 +334,7 @@ export default function Home() {
           />
           <div className="text-center mt-4">
             <button 
-              className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              className="text-primary hover:underline transition-colors"
               onClick={() => setCurrentView('signup')}
             >
               Don't have an account? Sign up
@@ -335,29 +350,29 @@ export default function Home() {
     const userData = pendingData ? JSON.parse(pendingData) : null;
 
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         {error && (
-          <div className="fixed top-4 right-4 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-destructive/20 border border-destructive text-destructive-foreground px-4 py-3 rounded z-50">
             {error}
           </div>
         )}
         {success && (
-          <div className="fixed top-4 right-4 bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded z-50">
+          <div className="fixed top-4 right-4 bg-secondary/20 border border-secondary text-foreground px-4 py-3 rounded z-50">
             {success}
           </div>
         )}
-        <div className="max-w-md mx-auto p-6 bg-black rounded-lg shadow-md">
+        <div className="max-w-md mx-auto p-6 bg-card rounded-lg shadow-md border">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">🩸 Blood Node</h1>
-            <h2 className="text-xl text-gray-300">Email Verification Required</h2>
+            <h1 className="text-3xl font-bold mb-2">🩸 Blood Node</h1>
+            <h2 className="text-xl text-muted-foreground">Email Verification Required</h2>
           </div>
 
           <div className="space-y-6">
             <div className="text-center">
-              <p className="text-gray-300 mb-4">
+              <p className="text-muted-foreground mb-4">
                 We've sent a verification email to <strong>{userData?.email}</strong>
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Please check your email and click the verification link to complete your registration.
               </p>
             </div>
@@ -366,18 +381,18 @@ export default function Home() {
 
             <div className="text-center">
               <button 
-                className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                className="text-primary hover:underline transition-colors"
                 onClick={() => setCurrentView('login')}
               >
                 Already verified? Login
               </button>
             </div>
 
-            <div className="mt-6 p-4 bg-blue-900 border border-blue-700 rounded-md">
-              <h3 className="font-medium text-blue-400">Account Information:</h3>
-              <div className="text-sm text-blue-200 mt-2 space-y-2">
+            <div className="mt-6 p-4 bg-secondary/20 border border-secondary rounded-md">
+              <h3 className="font-medium">Account Information:</h3>
+              <div className="text-sm mt-2 space-y-2">
                 <p><strong>User Code:</strong> {userData?.userCode}</p>
-                <p className="text-xs">Keep your User Code safe - you'll need it to identify your account.</p>
+                <p className="text-xs text-muted-foreground">Keep your User Code safe - you'll need it to identify your account.</p>
               </div>
             </div>
           </div>

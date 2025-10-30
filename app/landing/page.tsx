@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import ThemeToggle from '@/components/theme/theme-toggle';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
@@ -24,6 +25,11 @@ import {
   X,
   ChevronDown
 } from 'lucide-react';
+import UserDemo from '@/components/demo/user-demo';
+import DonorResultsDemo from '@/components/demo/donor-results-demo';
+import EmergencyDemo from '@/components/demo/emergency-demo';
+import NotificationDemo from '@/components/demo/notification-demo';
+import DonorMapDemo from '@/components/demo/donor-map-demo';
 
 const bloodGroups = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
@@ -101,8 +107,9 @@ export default function LandingPage() {
                   <Mail className="h-4 w-4" />
                 </a>
               </div>
-              <div className="text-sm">
-                Emergency: <span className="font-semibold">SMS to 01625524255</span>
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <span className="text-sm">Emergency: <span className="font-semibold">SMS to 01625524255</span></span>
               </div>
             </div>
           </div>
@@ -177,6 +184,9 @@ export default function LandingPage() {
                   >
                     Login
                   </button>
+                  <div className="pt-2">
+                    <ThemeToggle />
+                  </div>
                 </nav>
               </div>
             )}
@@ -388,47 +398,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SMS Format Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">SMS Format</h2>
-            <p className="text-lg text-gray-600">To place a blood request via SMS</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="bg-white rounded-2xl p-8 shadow-lg">
-              <h3 className="text-2xl font-bold text-red-600 mb-6">NEED</h3>
-              <p className="text-gray-600 mb-6">To contact donors when you need blood</p>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">FORMAT:</h4>
-                  <code className="bg-gray-100 p-3 rounded block text-sm">
-                    need group district unit date
-                  </code>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">EXAMPLE:</h4>
-                  <code className="bg-gray-100 p-3 rounded block text-sm">
-                    need O+ Thakurgaon 4 10-9-2024
-                  </code>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-red-600 text-white p-6 rounded-2xl inline-block relative">
-                <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-600 transform rotate-45"></div>
-                <div className="text-sm font-medium mb-2">SMS Example</div>
-                <div className="text-lg font-mono">
-                  need O+ Thakurgaon 4 10-9-2024
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Removed SMS Format section; replaced with interactive demos below */}
 
       {/* Search Donors Section */}
       <section id="search" className="py-20 bg-white">
@@ -532,6 +502,21 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Donor Results Demo - placed right after Search */}
+      <DonorResultsDemo />
+
+      {/* Emergency Notification Demo */}
+      <NotificationDemo />
+
+      {/* 10km Donor Map Demo */}
+      <DonorMapDemo />
+
+      {/* Demo Section */}
+      <UserDemo />
+
+      {/* Emergency Alert Demo */}
+      <EmergencyDemo />
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-gray-50">

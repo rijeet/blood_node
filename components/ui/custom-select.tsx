@@ -115,29 +115,29 @@ export function CustomSelect({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={`
-          w-full px-4 py-3 text-sm border border-gray-600 rounded-lg bg-gray-900 text-white shadow-sm
-          focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent
+          w-full px-4 py-3 text-sm border border-input rounded-lg bg-background text-foreground shadow-sm
+          focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
           transition-all duration-200 appearance-none cursor-pointer
-          hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800
+          hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed
           flex items-center justify-between
-          ${isOpen ? 'ring-2 ring-white border-transparent' : ''}
+          ${isOpen ? 'ring-2 ring-ring border-transparent' : ''}
         `}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-required={required}
       >
-        <span className={selectedOption ? 'text-white' : 'text-gray-400'}>
+        <span className={selectedOption ? 'text-foreground' : 'text-muted-foreground'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown 
-          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+          className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
           }`} 
         />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-gray-900 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-background border border-input rounded-lg shadow-lg max-h-60 overflow-auto">
           {options.map((option, index) => (
             <div
               key={option.value}
@@ -148,12 +148,12 @@ export function CustomSelect({
                 px-4 py-3 text-sm cursor-pointer flex items-center justify-between
                 transition-colors duration-150
                 ${option.disabled 
-                  ? 'text-gray-500 cursor-not-allowed bg-gray-800' 
+                  ? 'text-muted-foreground cursor-not-allowed bg-muted' 
                   : index === highlightedIndex 
-                    ? 'bg-gray-800 text-white' 
-                    : 'text-white hover:bg-gray-800'
+                    ? 'bg-accent text-accent-foreground' 
+                    : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                 }
-                ${option.value === value ? 'bg-gray-800' : ''}
+                ${option.value === value ? 'bg-accent/60' : ''}
               `}
               role="option"
               aria-selected={option.value === value}
@@ -161,7 +161,7 @@ export function CustomSelect({
             >
               <span>{option.label}</span>
               {option.value === value && (
-                <Check className="w-4 h-4 text-white" />
+                <Check className="w-4 h-4" />
               )}
             </div>
           ))}

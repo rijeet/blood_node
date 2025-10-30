@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import ThemeToggle from '@/components/theme/theme-toggle';
 import { 
   BarChart3, 
   Database, 
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/admin/security/alerts', label: 'Security', icon: Shield },
   { href: '/admin/support', label: 'Support', icon: MessageSquare },
   { href: '/admin/blog', label: 'Blog', icon: FileText },
+  { href: '/admin/donations', label: 'Donations', icon: Settings },
 ];
 
 export function AdminNav() {
@@ -30,16 +32,16 @@ export function AdminNav() {
   };
 
   return (
-    <nav className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="bg-background text-foreground shadow-sm border-b">
+      <div className="w-full px-6">
+        <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/admin" className="flex items-center space-x-2">
-              <div className="h-8 w-8 bg-red-600 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
+              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Blood Node Admin</span>
+              <span className="text-2xl font-bold">Blood Node Admin</span>
             </Link>
           </div>
 
@@ -54,11 +56,7 @@ export function AdminNav() {
                 <Link key={item.href} href={item.href}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
-                    className={`flex items-center space-x-2 ${
-                      isActive 
-                        ? 'bg-red-600 hover:bg-red-700 text-white' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                    className={`flex items-center space-x-2`}
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
@@ -70,11 +68,12 @@ export function AdminNav() {
 
           {/* User Actions */}
           <div className="flex items-center space-x-2">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="text-gray-600 hover:text-gray-900"
+              className=""
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout

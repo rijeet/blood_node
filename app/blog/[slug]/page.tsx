@@ -1,6 +1,7 @@
 import { getBlogPostBySlug } from '@/lib/db/blog';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, Clock, Tag } from 'lucide-react';
+import SiteHeader from '@/components/layout/site-header';
 
 interface Params {
   slug: string;
@@ -53,18 +54,7 @@ export default async function BlogPostPage({ params }: { params: Promise<Params>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Header Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 backdrop-blur-sm bg-white/90">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link 
-            href="/blog"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors font-medium group"
-          >
-            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Blog
-          </Link>
-        </div>
-      </div>
+      <SiteHeader />
 
       {/* Main Article */}
       <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
